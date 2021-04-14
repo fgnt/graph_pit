@@ -68,6 +68,8 @@ def graph_pit_loss(
 def get_overlap_graph(segment_boundaries: List[Tuple[int, int]]):
     edges = get_overlaps_from_segment_boundaries(segment_boundaries)
     graph = EdgeListGraph(len(segment_boundaries), edges)
+
+    # If this fails, something is wrong in the graph construction
     assert graph.num_vertices == len(segment_boundaries), (
         graph, segment_boundaries
     )
@@ -109,6 +111,13 @@ def target_sum_from_target_list(
                 f'Length mismatch between target and segment_boundaries at '
                 f'target {idx}: '
                 f'target shape: {targets[target_index].shape} '
+                f'segment_boundaries: {start, stop}'
+            )
+        if start < 0 or stop > target_sum.shape[-1]:
+            raise ValueError(
+                f'Length mismatch between estimation and targets / '
+                f'segment_boundaries at {idx}: '
+                f'estimation shape: {estimate.shape} '
                 f'segment_boundaries: {start, stop}'
             )
         target_sum[estimate_index, start:stop] += targets[target_index]
