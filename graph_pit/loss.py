@@ -22,7 +22,8 @@ def graph_pit_loss(
             `end - start` of the corresponding segment boundary.
         segment_boundaries (n_target): Start and stop times of targets relative
             to estimate.
-        loss_fn:
+        loss_fn: Callable loss function to apply to the sum signal. Has to have
+            the signature `loss_fn(estimate, target)`.
 
     Returns:
         loss
