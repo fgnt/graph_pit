@@ -1,1 +1,1 @@
-from .loss import graph_pit_loss
+from .loss import graph_pit_loss, GraphPITLoss

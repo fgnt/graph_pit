@@ -39,6 +39,30 @@ loss = graph_pit_loss(
 )
 ```
 
+## Advanced Usage
+
+If you want to access the intermediate signals, you can use the `GraphPITLoss`
+class:
+
+```python
+import torch
+from graph_pit import GraphPITLoss
+
+# Create three target utterances and two estimated signals
+targets = [torch.rand(100), torch.rand(200), torch.rand(150)]
+segment_boundaries = [(0, 100), (150, 350), (300, 450)]
+estimate = torch.rand(2, 500)
+
+# Compute loss
+loss = GraphPITLoss(
+    estimate, targets, segment_boundaries,
+    torch.nn.functional.mse_loss
+)
+print(loss.loss)
+print(loss.best_coloring)   # This is the coloring that minimizes the loss
+print(loss.best_target_sum) # This is the target sum signal (\tilde{s})
+```
+
 ## Cite this work
 
 If you use this code, please cite the paper:

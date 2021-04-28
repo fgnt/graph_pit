@@ -1,8 +1,87 @@
+from dataclasses import dataclass
 from typing import List, Tuple, Callable
 import torch
+from cached_property import cached_property
 
-from graph_pit.graph import EdgeListGraph
+from graph_pit.graph import EdgeListGraph, Graph
 from graph_pit.utils import get_overlaps_from_segment_boundaries
+
+
+def solve_graph_pit(
+        estimate: torch.Tensor,
+        targets: List[torch.Tensor],
+        segment_boundaries: List[Tuple[int, int]],
+        graph: Graph,
+        loss_fn: Callable
+) -> Tuple[torch.Tensor, Tuple[int, ...], torch.Tensor]:
+    colorings = list(graph.enumerate_graph_colorings(
+        max_num_colors=estimate.shape[0]))
+    if len(colorings) == 0:
+        raise ValueError(f'No coloring found for graph! graph: {graph}')
+
+    best_loss = None
+    best_coloring = None
+    best_target_sum = None
+
+    for coloring in colorings:
+        # Construct targets matching the current coloring
+        target_sum = target_sum_from_target_list(
+            estimate, targets, segment_boundaries, coloring
+        )
+        loss = loss_fn(estimate, target_sum)
+        if best_loss is None or loss < best_loss:
+            best_loss = loss
+            best_coloring = coloring
+            best_target_sum = target_sum
+
+    return best_loss, best_coloring, best_target_sum
+
+
+@dataclass
+class GraphPITLoss:
+    estimate: torch.Tensor
+    targets: List[torch.Tensor]
+    segment_boundaries: List[Tuple[int, int]]
+    loss_fn: Callable
+
+    def __post_init__(self):
+        # Check inputs
+        num_estimates = self.estimate.shape[0]
+        num_targets = len(self.targets)
+        if num_estimates > 30:
+            raise ValueError(f'Are you sure? num_estimates={num_estimates}')
+
+        if num_targets != len(self.segment_boundaries):
+            raise ValueError(
+                f'The number of targets doesn\'t match the number of segment '
+                f'boundaries! '
+                f'num targets: {num_targets}, '
+                f'num segment_boundaries: {len(self.segment_boundaries)}'
+            )
+
+    @cached_property
+    def graph(self) -> Graph:
+        """The graph constructed from the segment boundaries"""
+        return get_overlap_graph(self.segment_boundaries)
+
+    @property
+    def loss(self) -> torch.Tensor:
+        return self._loss[0]
+
+    @property
+    def best_coloring(self) -> Tuple[int]:
+        return self._loss[1]
+
+    @property
+    def best_target_sum(self) -> torch.Tensor:
+        return self._loss[2]
+
+    @cached_property
+    def _loss(self):
+        return solve_graph_pit(
+            self.estimate, self.targets, self.segment_boundaries, self.graph,
+            self.loss_fn
+        )
 
 
 def graph_pit_loss(
@@ -28,42 +107,7 @@ def graph_pit_loss(
     Returns:
         loss
     """
-    # Check inputs
-    num_estimates = estimate.shape[0]
-    num_targets = len(targets)
-    if num_estimates > 30:
-        raise ValueError(f'Are you sure? num_estimates={num_estimates}')
-
-    if num_targets != len(segment_boundaries):
-        raise ValueError(
-            f'The number of targets doesn\'t match the number of segment '
-            f'boundaries! '
-            f'num targets: {num_targets}, '
-            f'num segment_boundaries: {len(segment_boundaries)}'
-        )
-
-    # Construct graph from overlaps, based on segment_boundaries
-    graph = get_overlap_graph(segment_boundaries)
-
-    # Enumerate all colorings
-    colorings = list(graph.enumerate_graph_colorings(
-        max_num_colors=num_estimates))
-    if len(colorings) == 0:
-        raise ValueError(f'No coloring found for graph! graph: {graph}')
-
-    candidates = []
-    for coloring in colorings:
-        # Construct targets matching the current coloring
-        candidates.append(loss_fn(
-            estimate,
-            target_sum_from_target_list(
-                estimate, targets, segment_boundaries, coloring
-            )
-        ))
-
-    min_loss, idx = torch.min(torch.stack(candidates), dim=0)
-
-    return min_loss
+    return GraphPITLoss(estimate, targets, segment_boundaries, loss_fn).loss
 
 
 def get_overlap_graph(segment_boundaries: List[Tuple[int, int]]):
