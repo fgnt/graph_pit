@@ -4,7 +4,7 @@ import torch
 from cached_property import cached_property
 
 from graph_pit.graph import Graph
-from graph_pit.loss.base import get_overlap_graph, GraphPITBase
+from graph_pit.loss.base import GraphPITBase
 
 
 def solve_graph_pit(

@@ -34,8 +34,12 @@ class GraphPITBase:
         """The graph constructed from the segment boundaries"""
         return get_overlap_graph(self.segment_boundaries)
 
-    @cached_property
+    @property
     def loss(self):
+        raise NotImplementedError()
+
+    @property
+    def best_coloring(self) -> Tuple[int]:
         raise NotImplementedError()
 
 
