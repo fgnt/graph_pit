@@ -26,8 +26,16 @@ class Graph:
         raise NotImplementedError()
 
     @classmethod
-    def from_adjacency_matrix(cls, num_vertices, edge_list) -> 'Graph':
-        raise NotImplementedError()
+    def from_adjacency_matrix(cls, adjacency_matrix) -> 'Graph':
+        # For now, convert the adjacency matrix into an edge list
+        assert adjacency_matrix.ndim == 2, adjacency_matrix.shape
+        assert adjacency_matrix.shape[0] == adjacency_matrix.shape[1], adjacency_matrix.shape
+        num_vertices = adjacency_matrix.shape[0]
+        edge_list = set()
+        for i, x in enumerate(adjacency_matrix):
+            for j, v in enumerate(x):
+                edge_list.add(tuple(sorted((i, j))))
+        return cls.from_edge_list(num_vertices, edge_list)
 
     @property
     def vertices(self) -> List[int]:
