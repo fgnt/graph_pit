@@ -8,8 +8,8 @@ import paderbox as pb
 
 @pytest.mark.parametrize(
     'seed,num_samples,num_estimates,segment_boundaries,algorithm',
-    [(seed, num_samples, num_estimates, segmend_boundaries, algorithm)
-     for seed, num_samples, num_estimates, segmend_boundaries in [
+    [(seed, num_samples, num_estimates, segment_boundaries, algorithm)
+     for seed, num_samples, num_estimates, segment_boundaries in [
         (0, 500, 2, [(0, 100), (150, 350), (300, 450)]),
         (0, 8000 * 16, 2, [(0, 8000), (4000, 12000), (8000, 16000)]),
         (0, 8000 * 16, 3, [(0, 8000), (4000, 12000), (8000, 16000)]),
@@ -20,7 +20,10 @@ def test_optimized_graph_pit(
         seed, num_samples, num_estimates, segment_boundaries, algorithm
 ):
     torch.manual_seed(seed)
-    targets = [torch.rand(stop - start, dtype=torch.float64) for start, stop in segment_boundaries]
+    targets = [
+        torch.rand(stop - start, dtype=torch.float64)
+        for start, stop in segment_boundaries
+    ]
     estimate = torch.rand(num_estimates, num_samples, dtype=torch.float64)
 
     # The optimized version uses in fraction loss aggregation, so we have to
