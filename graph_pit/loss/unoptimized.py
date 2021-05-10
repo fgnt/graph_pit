@@ -3,8 +3,8 @@ from typing import List, Tuple, Callable
 import torch
 from cached_property import cached_property
 
-from graph_pit.graph import EdgeListGraph, Graph
-from graph_pit.utils import get_overlaps_from_segment_boundaries
+from graph_pit.graph import Graph
+from graph_pit.loss.base import get_overlap_graph, GraphPITBase
 
 
 def solve_graph_pit(
@@ -38,10 +38,7 @@ def solve_graph_pit(
 
 
 @dataclass
-class GraphPITLoss:
-    estimate: torch.Tensor
-    targets: List[torch.Tensor]
-    segment_boundaries: List[Tuple[int, int]]
+class GraphPITLoss(GraphPITBase):
     loss_fn: Callable
 
     def __post_init__(self):
@@ -58,11 +55,6 @@ class GraphPITLoss:
                 f'num targets: {num_targets}, '
                 f'num segment_boundaries: {len(self.segment_boundaries)}'
             )
-
-    @cached_property
-    def graph(self) -> Graph:
-        """The graph constructed from the segment boundaries"""
-        return get_overlap_graph(self.segment_boundaries)
 
     @property
     def loss(self) -> torch.Tensor:
@@ -108,17 +100,6 @@ def graph_pit_loss(
         loss
     """
     return GraphPITLoss(estimate, targets, segment_boundaries, loss_fn).loss
-
-
-def get_overlap_graph(segment_boundaries: List[Tuple[int, int]]):
-    edges = get_overlaps_from_segment_boundaries(segment_boundaries)
-    graph = EdgeListGraph(len(segment_boundaries), edges)
-
-    # If this fails, something is wrong in the graph construction
-    assert graph.num_vertices == len(segment_boundaries), (
-        graph, segment_boundaries
-    )
-    return graph
 
 
 def target_sum_from_target_list(
