@@ -138,6 +138,7 @@ class ThresholdedSDRLoss(torch.nn.Module):
                 loss is limited to `-max_sdr`.
         """
         super().__init__()
+        self.max_sdr = max_sdr
         self.threshold = 10 ** (-max_sdr / 10)
         self.epsilon = epsilon
         self.reduction = reduction
@@ -148,4 +149,11 @@ class ThresholdedSDRLoss(torch.nn.Module):
         return thresholded_sdr_loss(
             estimate, target, self.threshold, self.epsilon, self.reduction
         )
+
+    def extra_repr(self) -> str:
+        return (
+            f'max_sdr={self.max_sdr}, epsilon={self.epsilon}, '
+            f'reduction={self.reduction}'
+        )
+
 
