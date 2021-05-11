@@ -78,6 +78,7 @@ def config():
                 'loss_fn': {
                     'factory': ThresholdedSDRLoss,
                     'max_sdr': 20,
+                    'epsilon': 1e-6,
                 }
             }
         },
