@@ -23,6 +23,8 @@ pip install -e graph_pit
 
 ## Usage
 
+The default Graph-PIT loss can be used as follows:
+
 ```python
 import torch
 from graph_pit import graph_pit_loss
@@ -39,10 +41,23 @@ loss = graph_pit_loss(
 )
 ```
 
+There is also an optimized version in `graph_pit.loss.optimized`.
+
 ## Advanced Usage
 
-If you want to access the intermediate signals, you can use the `GraphPITLoss`
-class:
+Each loss variant has three interfaces:
+ - function: A simple functional interface as used above
+ - class: A (data)class that computes the loss for one pair of estimates and 
+   targets and exposes all intermediate states (e.g., the intermediate signals,
+   the best coloring, ...). This makes testing (you can test for intermediate 
+   signals, mock things, ...) and extension (you can easily sub-class and 
+   overwrite parts of the computation) easier.
+ - `torch.nn.Module`: A module wrapper around the class interface that allows 
+   usage as a Module so that `loss_fn` can be a trainable module and the loss
+   shows up in the print representation.
+
+This is an example of the class interface `GraphPITLoss` to get access to the 
+best coloring and target sum signals:
 
 ```python
 import torch
@@ -62,6 +77,33 @@ print(loss.loss)
 print(loss.best_coloring)   # This is the coloring that minimizes the loss
 print(loss.best_target_sum) # This is the target sum signal (\tilde{s})
 ```
+
+This is an example of the `torch.nn.Module` variant:
+
+```python
+import torch
+from graph_pit.loss import GraphPITLossModule, ThresholdedSDRLoss
+
+
+class MyModel(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.loss = GraphPITLossModule(
+            loss_fn=ThresholdedSDRLoss(max_sdr=20, epsilon=1e-6)
+        )
+```
+
+## Optimized variant
+
+There is an optimized variant for a modified SDR in `graph_pit.loss.optimized`.
+This loss sums the energies of the target and error signals across estimated 
+and target signals before computing the SDR.
+This loss variant showed a slight improvement in separation performance compared
+to the standard SDR.
+It can be factorized and its computation can be optimized (a lot).
+
+The optimized variant works by computing a similarity matrix and using a 
+constrained permutation solving algorithm on this similarity matrix.
 
 ## Cite this work
 
