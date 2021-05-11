@@ -4,7 +4,14 @@ import torch
 from cached_property import cached_property
 
 from graph_pit.graph import Graph
-from graph_pit.loss.base import GraphPITBase
+from graph_pit.loss.base import GraphPITBase, LossModule
+
+
+__all__ = [
+    'GraphPITLoss',
+    'GraphPITLossModule',
+    'graph_pit_loss',
+]
 
 
 def solve_graph_pit(
@@ -39,6 +46,14 @@ def solve_graph_pit(
 
 @dataclass
 class GraphPITLoss(GraphPITBase):
+    """
+    A class variant of the Graph-PIT loss. This class computes the loss for a
+    single instance of estimates and targets. It gives access to the
+    intermediate states (e.g., `best_coloring`) that would not be accessible
+    with a plain function. This simplifies testing and is easy to extend
+    because individual steps of the loss computation are factored out into
+    different methods that can easily be overwritten.
+    """
     loss_fn: Callable
 
     def __post_init__(self):
@@ -85,6 +100,9 @@ def graph_pit_loss(
     """
     Graph-PIT loss function.
 
+    A function wrapper around the GraphPITLoss class for a simpler interface to
+    the loss.
+
     Args:
         estimate (n_out time): Estimations, one for each output channel of the
             separator.
@@ -100,6 +118,24 @@ def graph_pit_loss(
         loss
     """
     return GraphPITLoss(estimate, targets, segment_boundaries, loss_fn).loss
+
+
+class GraphPITLossModule(LossModule):
+    """
+    A `torch.nn.Module`-based interface to the loss object. This is useful if
+    `loss_fn` itself is a module and the loss should be displayed in the print
+    representation of the module. Also, this is required for an object-oriented
+    approach for the model, e.g., with `pt.Configurable`.
+    """
+    def __init__(self, loss_fn):
+        super().__init__()
+        self.loss_fn = loss_fn
+
+    def get_loss_object(self, estimate, targets, segment_boundaries):
+        return GraphPITLoss(
+            estimate, targets, segment_boundaries,
+            loss_fn=self.loss_fn,
+        )
 
 
 def target_sum_from_target_list(

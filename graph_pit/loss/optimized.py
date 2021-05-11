@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from functools import cached_property
 from typing import Union, Callable
 import torch
@@ -6,8 +6,14 @@ import numpy as np
 
 import padertorch as pt
 
-from graph_pit.loss import GraphPITBase
+from graph_pit.loss.base import GraphPITBase, LossModule
 from graph_pit.permutation_solving import graph_permutation_solvers
+
+__all__ = [
+    'OptimizedGraphPITSDR3Loss',
+    'OptimizedGraphPITSDR3LossModule',
+    'optimized_graph_pit_sdr3_loss',
+]
 
 
 @dataclass
@@ -72,3 +78,27 @@ class OptimizedGraphPITSDR3Loss(GraphPITBase):
         # Compute the final SDR as (|s|^2)/(|s|^2 + |shat|^2 + sum(matmul(s, shat)))
         sdr = target_energy / (target_energy + estimate_energy - 2 * similarity)
         return -10 * torch.log10(sdr)
+
+
+def optimized_graph_pit_sdr3_loss(
+        estimate, targets, segment_boundaries, permutation_solver
+):
+    return OptimizedGraphPITSDR3Loss(
+        estimate, targets, segment_boundaries,
+        permutation_solver=permutation_solver
+    ).loss
+
+
+class OptimizedGraphPITSDR3LossModule(LossModule):
+    def __init__(self, permutation_solver):
+        super().__init__()
+        self.permutation_solver = permutation_solver
+
+    def get_loss_object(self, estimate, targets, segment_boundaries):
+        return OptimizedGraphPITSDR3Loss(
+            estimate, targets, segment_boundaries,
+            permutation_solver=self.permutation_solver
+        )
+
+    def extra_repr(self) -> str:
+        return f'{self.permutation_solver}, '

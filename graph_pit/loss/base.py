@@ -43,6 +43,14 @@ class GraphPITBase:
         raise NotImplementedError()
 
 
+class LossModule(torch.nn.Module):
+    def get_loss_object(self, estimate, targets, segment_boundaries):
+        raise NotImplementedError()
+
+    def forward(self, estimate, targets, segment_boundaries):
+        return self.get_loss_object(estimate, targets, segment_boundaries).loss
+
+
 def get_overlap_graph(segment_boundaries: List[Tuple[int, int]]):
     edges = get_overlaps_from_segment_boundaries(segment_boundaries)
     graph = EdgeListGraph(len(segment_boundaries), edges)
