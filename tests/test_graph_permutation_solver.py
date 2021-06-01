@@ -6,7 +6,7 @@ import pytest
 from graph_pit.graph import Graph
 import numpy as np
 import paderbox as pb
-from graph_pit import permutation_solving as gps
+from graph_pit import assignment as gpa
 
 
 def _random_graph(num_vertices, window_size):
@@ -14,12 +14,12 @@ def _random_graph(num_vertices, window_size):
     edge_list = set()
     for v in range(num_vertices):
         if window:
-            num_neighbors = np.random.randint(0, len(window) + 1)
-            if num_neighbors:
-                neighbors = np.random.choice(window, num_neighbors)
+            discard = np.random.randint(0, len(window) + 1)
+            for i in range(discard):
+                window.popleft()
 
-                for neighbor in neighbors:
-                    edge_list.add((neighbor, v))
+            for neighbor in window:
+                edge_list.add((neighbor, v))
         window.append(v)
     graph = Graph.from_edge_list(num_vertices, edge_list)
     return graph
@@ -32,28 +32,28 @@ def _check_valid_solution(coloring: Tuple, graph: Graph):
 
 
 @pytest.mark.parametrize(
-    'permutation_solver,num_targets,num_estimates,minimize',
+    'assignment_solver,num_targets,num_estimates,minimize',
     [
-        (permutation_solver, num_targets, num_estimates, minimize)
-        for permutation_solver in gps.graph_permutation_solvers.keys()
+        (assignment_solver, num_targets, num_estimates, minimize)
+        for assignment_solver in gpa.graph_assignment_solvers.keys()
         for num_targets, num_estimates in [(3, 2), (10, 2), (5, 3), (5, 5), (3, 15)]
         for minimize in [True, False]
     ]
 )
 def test_permutation_solver_valid(
-        permutation_solver,
+        assignment_solver,
         num_targets, num_estimates,
         minimize, trials=5,
 ):
     """Test if all permutation solvers return a valid coloring of the graph"""
-    permutation_solver_fn = gps.graph_permutation_solvers[permutation_solver](
+    assignment_fn = gpa.graph_assignment_solvers[assignment_solver](
         minimize=minimize
     )
     for _ in range(trials):
         score_matrix = np.random.randn(num_targets, num_estimates)
         graph = _random_graph(num_targets, (num_estimates + 1) // 2)
-        best_coloring = permutation_solver_fn(score_matrix, graph)
-        if permutation_solver == 'greedy_cop':
+        best_coloring = assignment_fn(score_matrix, graph)
+        if assignment_solver == 'greedy_cop':
             # This greedy variant does not always find a solution, so it should
             # pass the test if the output is None
             if best_coloring is None:
@@ -62,16 +62,23 @@ def test_permutation_solver_valid(
 
 
 @pytest.mark.parametrize(
-    'permutation_solver,num_targets,num_estimates,minimize',
+    'assignment_solver,num_targets,num_estimates,minimize',
     [
-        (permutation_solver, num_targets, num_estimates, minimize)
-        for permutation_solver in ['optimal_brute_force', 'optimal_branch_and_bound']
-        for num_targets, num_estimates in [(3, 2), (10, 2), (5, 3), (5, 5)]
+        (assignment_solver, num_targets, num_estimates, minimize)
+        for assignment_solver in [
+            'optimal_brute_force', 'optimal_branch_and_bound',
+            'optimal_dynamic_programming'
+        ]
+        for num_targets, num_estimates in [
+        (3, 2), (10, 2),
+        (5, 3),
+        (5, 5)
+    ]
         for minimize in [True, False]
     ]
 )
 def test_permutation_optimal(
-        permutation_solver, num_targets, num_estimates, minimize, trials=10
+        assignment_solver, num_targets, num_estimates, minimize, trials=10
 ):
     """
     Test if the different optimal permutation solvers give the same result.
@@ -80,10 +87,10 @@ def test_permutation_optimal(
      - brute force (the optimized version)
      - branch_and_bound
     """
-    optimal_permutation_solver = gps.graph_permutation_solvers['optimal_brute_force'](
+    optimal_permutation_solver = gpa.graph_assignment_solvers['optimal_brute_force'](
         minimize=minimize, optimize_connected_components=False
     )
-    permutation_solver = gps.graph_permutation_solvers[permutation_solver](minimize=minimize)
+    permutation_solver = gpa.graph_assignment_solvers[assignment_solver](minimize=minimize)
     for _ in range(trials):
         score_matrix = np.random.randn(num_targets, num_estimates)
         graph = _random_graph(num_targets, (num_estimates + 1) // 2)
@@ -91,7 +98,9 @@ def test_permutation_optimal(
 
         _check_valid_solution(best_coloring, graph)
         optimal_coloring = optimal_permutation_solver(score_matrix, graph)
-        assert tuple(best_coloring) == tuple(optimal_coloring)
+        assert tuple(best_coloring) == tuple(optimal_coloring), (
+            list(score_matrix), graph
+        )
 
 
 # Sometimes this test fails when the randomly generated graph has too small
@@ -105,35 +114,43 @@ def test_runtime(num_targets=15, num_estimates=3):
     graph = _random_graph(num_targets, (num_estimates + 1) // 2)
 
     # Unoptimized
-    permutation_solver = gps.OptimalBruteForceGraphPermutationSolver(
+    assignment_solver = gpa.OptimalBruteForceGraphAssignmentSolver(
         optimize_connected_components=False
     )
     with timer['unoptimized']:
-        permutation_solver(score_matrix, graph)
+        assignment_solver(score_matrix, graph)
 
     # Optimized brute force
-    permutation_solver = gps.OptimalBruteForceGraphPermutationSolver()
-    with timer['optimized_brute_force']:
-        permutation_solver(score_matrix, graph)
+    assignment_solver = gpa.OptimalBruteForceGraphAssignmentSolver()
+    with timer['brute_force']:
+        assignment_solver(score_matrix, graph)
 
     # DFS
-    permutation_solver = gps.DFSGraphPermutationSolver()
+    assignment_solver = gpa.DFSGraphAssignmentSolver()
     with timer['dfs']:
-        permutation_solver(score_matrix, graph)
+        assignment_solver(score_matrix, graph)
 
     # Greedy
-    permutation_solver = gps.GreedyCOPGraphPermutationSolver()
+    assignment_solver = gpa.GreedyCOPGraphAssignmentSolver()
     with timer['greedy']:
-        permutation_solver(score_matrix, graph)
+        assignment_solver(score_matrix, graph)
 
     # Branch and Bound
-    permutation_solver = gps.OptimalBranchAndBoundGraphPermutationSolver()
+    assignment_solver = gpa.OptimalBranchAndBoundGraphAssignmentSolver()
     with timer['branch_and_bound']:
-        permutation_solver(score_matrix, graph)
+        assignment_solver(score_matrix, graph)
+
+    # Dynamic Programming
+    assignment_solver = gpa.OptimalDynamicProgrammingAssignmentSolver()
+    with timer['dynamic_programming']:
+        assignment_solver(score_matrix, graph)
 
     times = timer.as_dict
-    assert times['unoptimized'] > times['optimized_brute_force']
-    assert times['dfs'] < times['optimized_brute_force']
-    assert times['greedy'] < times['optimized_brute_force']
-    assert times['branch_and_bound'] < times['optimized_brute_force']
+    assert times['unoptimized'] > times['brute_force']
+    assert times['dfs'] < times['brute_force']
+    assert times['greedy'] < times['brute_force']
+    assert times['dynamic_programming'] < times['brute_force']
+    # These can fail occasionally because B&B's runtime is not deterministic
+    assert times['branch_and_bound'] < times['brute_force']
+    assert times['dynamic_programming'] < times['branch_and_bound']
 

@@ -7,7 +7,7 @@ import numpy as np
 import padertorch as pt
 
 from graph_pit.loss.base import GraphPITBase, LossModule
-from graph_pit.permutation_solving import graph_permutation_solvers
+from graph_pit.assignment import graph_assignment_solvers
 
 __all__ = [
     'OptimizedGraphPITSourceAggregatedSDRLoss',
@@ -30,7 +30,7 @@ class OptimizedGraphPITSourceAggregatedSDRLoss(GraphPITBase):
 
         if not callable(self.permutation_solver):
             self.permutation_solver = (
-                graph_permutation_solvers[self.permutation_solver]
+                graph_assignment_solvers[self.permutation_solver]
             )(minimize=False)
 
     @cached_property
@@ -45,7 +45,6 @@ class OptimizedGraphPITSourceAggregatedSDRLoss(GraphPITBase):
         for idx, (target, (start, stop)) in enumerate(zip(
                 self.targets, self.segment_boundaries
         )):
-            assert target.shape[0] > 1, target.shape
             v.append(torch.sum(
                 self.estimate[..., start:stop] * target[..., None, :],
                 dim=-1

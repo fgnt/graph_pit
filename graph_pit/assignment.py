@@ -1,11 +1,7 @@
 """
-This file contains algorithms for permutation solving similar to
+This file contains algorithms for finding graph-pit assignments similar to
 tvn.algorithm.permutation_solving but with cannot-link constraints described by
 a cannot-link graph.
-
-TODO: Rename! The name "permutation_solving" is actually wrong because this
-    finds assignments instead of permutations. The name is taken from the uPIT
-    case.
 """
 from collections import deque
 from dataclasses import dataclass
@@ -43,7 +39,7 @@ def _find_mapping_apply_connected_components(
 
 
 @dataclass
-class GraphPermutationSolver:
+class GraphAssignmentSolver:
     minimize: bool = False
     optimize_connected_components: bool = True
 
@@ -73,22 +69,11 @@ class GraphPermutationSolver:
         raise NotImplementedError()
 
 
-class OptimalBruteForceGraphPermutationSolver(GraphPermutationSolver):
+class OptimalBruteForceGraphAssignmentSolver(GraphAssignmentSolver):
     """
-    Examples:
-        >>> score_matrix = np.array([[10., 7., 5.], [11., 3., 6.]]).T
-        >>> graph = Graph.from_edge_list(3, [(0, 1), (1, 2)])
-        >>> OptimalBruteForceGraphPermutationSolver()(score_matrix, graph)
-        array([1, 0, 1])
-
-        >>> score_matrix = np.array([[10., 7., 8.], [11., 3., 5.]]).T
-        >>> OptimalBruteForceGraphPermutationSolver()(score_matrix, graph)
-        array([1, 0, 1])
-
-        Fully connected graph does not have a solution, so the function returns None.
-        >>> score_matrix = np.array([[10., 7., 5.], [11., 3., 6.]]).T
-        >>> OptimalBruteForceGraphPermutationSolver()(score_matrix, Graph.from_edge_list(
-        ...     3, [(0, 1), (1, 2), (0, 2)]))
+    A brute-force assignment algorithm. Tests every possible permitted
+    assignment and returns the one with the smallest (or largest, if
+    `minimize`=False) score.
     """
     def solve_permutation(self, score_matrix, cannot_link_graph):
         num_targets, num_estimates = score_matrix.shape
@@ -133,7 +118,7 @@ class OptimalBruteForceGraphPermutationSolver(GraphPermutationSolver):
 
 
 @dataclass
-class GreedyCOPGraphPermutationSolver(GraphPermutationSolver):
+class GreedyCOPGraphAssignmentSolver(GraphAssignmentSolver):
     """
       Greedy algorithm.
 
@@ -152,16 +137,6 @@ class GreedyCOPGraphPermutationSolver(GraphPermutationSolver):
       Returns:
           Permutation with shape (N). Each entry in the returned array is
           an index along the K axis.
-
-      Examples:
-          >>> score_matrix = np.array([[10., 7., 5.], [11., 3., 6.]]).T
-          >>> graph = Graph.from_edge_list(3, [(0, 1), (1, 2)])
-          >>> solve_permutation_graph_greedy_cop(score_matrix, graph)
-          array([1, 0, 1])
-
-          The following example isn't solvable by this greedy approach
-          >>> score_matrix = np.array([[10., 7., 8.], [11., 3., 5.]]).T
-          >>> solve_permutation_graph_greedy_cop(score_matrix, graph)
 
       References:
           [1] Wagstaff, Kiri, Claire Cardie, Seth Rogers, and Stefan Schroedl.
@@ -210,7 +185,7 @@ class GreedyCOPGraphPermutationSolver(GraphPermutationSolver):
 
 
 @dataclass
-class DFSGraphPermutationSolver(GraphPermutationSolver):
+class DFSGraphAssignmentSolver(GraphAssignmentSolver):
     """
     A depth-first search algorithm for greedy permutation solving.
 
@@ -234,41 +209,9 @@ class DFSGraphPermutationSolver(GraphPermutationSolver):
         greedy but I don't know how else to call it) solution might
         even be a better solution than the "optimal" one.
 
-    Args:
-        score_matrix (N K):
-        cannot_link_graph: Graph with N vertices that describes cannot-link
-            dependencies
-        minimize: If `True`, minimizes the score
-
     Returns:
         Permutation with shape (N). Each entry in the returned array is
         an index along the K axis.
-
-    Examples:
-        >>> score_matrix = np.array([[10., 7., 5.], [11., 3., 6.]]).T
-        >>> graph = Graph.from_edge_list(3, [(0, 1), (1, 2)])
-        >>> solve_permutation_graph_dfs(score_matrix, graph)
-        array([1, 0, 1])
-
-        The following example isn't solvable by this COP greedy approach,
-        but the DFS approach finds a solution
-        >>> score_matrix = np.array([[10., 7., 8.], [11., 3., 5.]]).T
-        >>> solve_permutation_graph_dfs(score_matrix, graph)
-        array([1, 0, 1])
-
-        >>> score_matrix = np.array([[10., 7., 8.], [11., 3., 5.]]).T
-        >>> solve_permutation_graph_dfs(score_matrix, graph, minimize=True)
-        array([0, 1, 0])
-
-        Fully connected graph does not have a solution, so the function returns None.
-        >>> solve_permutation_graph_dfs(score_matrix, Graph.from_edge_list(
-        ...     3, [(0, 1), (1, 2), (0, 2)]))
-
-        Also works for N < K
-        >>> score_matrix = np.array([[10., 7., 8.], [11., 3., 5.]])
-        >>> graph = Graph.from_edge_list(2, [(0, 1)])
-        >>> solve_permutation_graph_dfs(score_matrix, graph)
-        array([2, 0])
     """
 
     def solve_permutation(self, score_matrix, cannot_link_graph):
@@ -310,7 +253,7 @@ class DFSGraphPermutationSolver(GraphPermutationSolver):
                     return coloring
 
 
-class OptimalBranchAndBoundGraphPermutationSolver(GraphPermutationSolver):
+class OptimalBranchAndBoundGraphAssignmentSolver(GraphAssignmentSolver):
     """
     A bran-and-bound algorithm to find the optimal solution to the graph
     permutation problem.
@@ -367,7 +310,7 @@ class OptimalBranchAndBoundGraphPermutationSolver(GraphPermutationSolver):
 
 
 @dataclass
-class OptimalDynamicProgrammingPermutationSolver(GraphPermutationSolver):
+class OptimalDynamicProgrammingAssignmentSolver(GraphAssignmentSolver):
     """
     An assignment algorithm that runs in num_colors**num_colors * num_vertices
     time, so it is linear in the number of vertices (but exponential in the
@@ -380,6 +323,7 @@ class OptimalDynamicProgrammingPermutationSolver(GraphPermutationSolver):
         assertion error is raised.
     """
     def solve_permutation(self, score_matrix, cannot_link_graph: Graph):
+        # TODO: Check if adjacency list is valid (i.e., sorted)
         adjacency_list = [
             [n for n in neighbors if n < node]
             for node, neighbors in enumerate(cannot_link_graph.adjacency_list)
@@ -389,6 +333,7 @@ class OptimalDynamicProgrammingPermutationSolver(GraphPermutationSolver):
 
         if not self.minimize:
             score_matrix = -score_matrix
+        score_matrix -= np.min(score_matrix)
 
         state_nodes = (0,)
         candidates = {
@@ -403,7 +348,7 @@ class OptimalDynamicProgrammingPermutationSolver(GraphPermutationSolver):
         for node in range(1, score_matrix.shape[0]):
             neighbors = adjacency_list[node]
 
-            state_nodes = tuple([n for n in state_nodes if n not in neighbors]) + (node,)
+            state_nodes = tuple(neighbors) + (node,)
 
             candidates_old = candidates.copy()
             candidates = {}
@@ -427,10 +372,10 @@ class OptimalDynamicProgrammingPermutationSolver(GraphPermutationSolver):
 
 
 # Dispatchers for permutation solving using a cannot-link graph
-graph_permutation_solvers = pb.utils.mapping.Dispatcher({
-    'optimal_brute_force': OptimalBruteForceGraphPermutationSolver,
-    'optimal_branch_and_bound': OptimalBranchAndBoundGraphPermutationSolver,
-    'optimal_dynamic_programming': OptimalDynamicProgrammingPermutationSolver,
-    'dfs': DFSGraphPermutationSolver,
-    'greedy_cop': GreedyCOPGraphPermutationSolver,
+graph_assignment_solvers = pb.utils.mapping.Dispatcher({
+    'optimal_brute_force': OptimalBruteForceGraphAssignmentSolver,
+    'optimal_branch_and_bound': OptimalBranchAndBoundGraphAssignmentSolver,
+    'optimal_dynamic_programming': OptimalDynamicProgrammingAssignmentSolver,
+    'dfs': DFSGraphAssignmentSolver,
+    'greedy_cop': GreedyCOPGraphAssignmentSolver,
 })
