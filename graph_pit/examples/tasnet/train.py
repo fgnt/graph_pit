@@ -19,17 +19,20 @@ from pathlib import Path
 from sacred import Experiment
 from sacred.observers.file_storage import FileStorageObserver
 from sacred.utils import InvalidConfigError, MissingConfigError
+from paderbox.io.new_subdir import NameGenerator
 
 import padertorch as pt
 import padertorch.contrib.examples.source_separation.tasnet.model
-from padertorch.data.segment import Segmenter
 
 import graph_pit
+from graph_pit.examples.tasnet.data import cut_segment, single_channel_scenario_map_fn
+from graph_pit.examples.tasnet.model import GraphPITTasNetModel
+from graph_pit.examples.tasnet.modules import DPRNNTasNetSeparator
 from graph_pit.loss import GraphPITLossModule
 from graph_pit.loss.regression import ThresholdedSDRLoss
 
 sacred.SETTINGS.CONFIG.READ_ONLY_CONFIG = False
-experiment_name = "tasnet"
+experiment_name = "tasnet-graph-pit-debug"
 ex = Experiment(experiment_name)
 
 JSON_BASE = os.environ.get('NT_DATABASE_JSONS_DIR', None)
@@ -41,15 +44,13 @@ def config():
     batch_size = 4  # Runs on 4GB GPU mem. Can safely be set to 12 on 12 GB (e.g., GTX1080)
     chunk_size = 32000  # 4s chunks @8kHz
 
-    train_dataset = "mix_2_spk_min_tr"
-    validate_dataset = "mix_2_spk_min_cv"
+    train_dataset = 'train'
+    validate_dataset = 'dev'
     target = 'speech_source'
-    lr_scheduler_step = 2
-    lr_scheduler_gamma = 0.98
     load_model_from = None
     database_json = None
     if database_json is None and JSON_BASE:
-        database_json = Path(JSON_BASE) / 'wsj0_2mix_8k.json'
+        database_json = Path(JSON_BASE) / 'sms_wsj_meeting_1ch_8k_kaldi_vad_58spk.json'
 
     if database_json is None:
         raise MissingConfigError(
@@ -62,25 +63,10 @@ def config():
     encoder_window_size = 16
     trainer = {
         "model": {
-            "factory": graph_pit.examples.tasnet.model.GraphPITTasNet,
-            'encoder': {
-                'factory': padertorch.contrib.examples.source_separation.tasnet.tas_coders.TasEncoder,
-                'window_length': encoder_window_size,
-                'feature_size': feat_size,
+            "factory": GraphPITTasNetModel,
+            'source_separator': {
+                'factory': DPRNNTasNetSeparator,
             },
-            'decoder': {
-                'factory': padertorch.contrib.examples.source_separation.tasnet.tas_coders.TasDecoder,
-                'window_length': encoder_window_size,
-                'feature_size': feat_size,
-            },
-            'loss': {
-                'factory': GraphPITLossModule,
-                'loss_fn': {
-                    'factory': ThresholdedSDRLoss,
-                    'max_sdr': 20,
-                    'epsilon': 1e-6,
-                }
-            }
         },
         "storage_dir": None,
         "optimizer": {
@@ -97,171 +83,89 @@ def config():
     }
     pt.Trainer.get_config(trainer)
     if trainer['storage_dir'] is None:
-        trainer['storage_dir'] = pt.io.get_new_storage_dir(experiment_name)
+        trainer['storage_dir'] = pt.io.get_new_storage_dir(
+            experiment_name, id_naming=NameGenerator(('adjectives', 'animals'))
+        )
 
     ex.observers.append(FileStorageObserver(
         Path(trainer['storage_dir']) / 'sacred')
     )
 
 
-@ex.named_config
-def win2():
-    """
-    This is the configuration for the best performing model from the DPRNN
-    paper. Training takes very long time with this configuration.
-    """
-    # The model becomes very memory consuming with this small window size.
-    # You might have to reduce the chunk size as well.
-    batch_size = 1
-
-    trainer = {
-        'model': {
-            'encoder': {
-                'window_length': 2
-            },
-            'separator': {
-                'window_length': 250,
-                'hop_size': 125,  # Half of window length
-            },
-            'decoder': {
-                'window_length': 2
-            }
-        }
-    }
-
-
-@ex.named_config
-def stft():
-    """
-    Use the STFT and iSTFT as encoder and decoder instead of a learned
-    transformation
-    """
-    trainer = {
-        'model': {
-            'encoder': {
-                'factory': 'padertorch.contrib.examples.source_separation.tasnet.tas_coders.StftEncoder'
-            },
-            'decoder': {
-                'factory': 'padertorch.contrib.examples.source_separation.tasnet.tas_coders.IstftDecoder'
-            },
-        }
-    }
-
-
-@ex.named_config
-def dprnn():
-    trainer = {'model': {'separator': {
-        'factory': pt.modules.dual_path_rnn.DPRNN,
-        'input_size': 64,
-        'rnn_size': 128,
-        'window_length': 100,
-        'hop_size': 50,
-        'num_blocks': 6,
-    }}}
-
-
-@ex.named_config
-def convnet():
-    feat_size = 256
-    trainer = {'model': {'separator': {
-        'factory': 'padertorch.contrib.jensheit.convnet.ConvNet',
-        'input_size': feat_size,
-        'num_blocks': 8,
-        'num_repeats': 4,
-        'in_channels': 256,
-        'hidden_channels': 512,
-        'kernel_size': 3,
-        'norm': "gLN",
-        'activation': "relu",
-    }}}
-
-
-@ex.named_config
-def log_mse():
-    """
-    Use the log_mse loss
-    """
-    trainer = {
-        'loss_weights': {
-            'si-sdr': 0.0,
-            'log-mse': 1.0,
-        }
-    }
-
-
-@ex.named_config
-def log1p_mse():
-    """
-    Use the log1p_mse loss
-    """
-    trainer = {
-        'loss_weights': {
-            'si-sdr': 0.0,
-            'log1p-mse': 1.0,
-        }
-    }
-
-
-@ex.named_config
-def on_wsj0_2mix_max():
-    chunk_size = -1
-    train_dataset = "mix_2_spk_max_tr"
-    validate_dataset = "mix_2_spk_max_cv"
-
-
 @ex.capture
 def pre_batch_transform(inputs):
+    s = np.ascontiguousarray(inputs['audio_data']['speech_image'], np.float32)
+    num_samples = inputs['num_samples']['observation']
+    utterance_boundaries = [
+        (max(start, 0), min(stop, num_samples))
+        for start, stop in zip(inputs['speech_onset'], inputs['speech_offset'])
+    ]
+    s = [s_[start:stop] for s_, (start, stop) in zip(s, utterance_boundaries)]
+    assert all(s_.shape[0] > 0 for s_ in s), (s, utterance_boundaries)
     return {
-        's': np.ascontiguousarray([
-            pb.io.load_audio(p)
-            for p in inputs['audio_path']['speech_source']
-        ], np.float32),
-        'y': np.ascontiguousarray(
-            pb.io.load_audio(inputs['audio_path']['observation']), np.float32),
-        'num_samples': inputs['num_samples'],
+        's': s,
+        'y': np.ascontiguousarray(inputs['audio_data']['observation'], np.float32),
+        'num_samples': num_samples,
         'example_id': inputs['example_id'],
-        'audio_path': inputs['audio_path'],
+        'utterance_boundaries': utterance_boundaries,
+        'num_speakers': len(set(inputs['speaker_id'])),
     }
+
+
+def load_audio(example):
+    example['audio_data'] = {
+        'original_source': [
+            pb.io.load_audio(p)
+            for p in example['audio_path']['speech_source']
+        ]
+    }
+    example = single_channel_scenario_map_fn(example)
+    return example
 
 
 def prepare_dataset(
-        db, dataset: str, batch_size, chunk_size, shuffle=True,
+        dataset, batch_size, chunk_size, shuffle=True,
         prefetch=True, dataset_slice=None,
 ):
     """
     This is re-used in the evaluate script
     """
-    dataset = db.get_dataset(dataset)
-
     if dataset_slice is not None:
         dataset = dataset[dataset_slice]
 
-    segmenter = Segmenter(
-        chunk_size, include_keys=('y', 's'), axis=-1,
-        anchor='random' if shuffle else 'left',
-    )
+    def segment(example):
+        segment_boundaries = pt.data.segment.get_segment_boundaries(
+            num_samples=example['num_samples']['observation'],
+            length=chunk_size, shift=chunk_size,
+            anchor='random' if shuffle else 'left',
+        )
 
-    def _set_num_samples(example):
-        example['num_samples'] = example['y'].shape[-1]
-        return example
+        segments = [
+            cut_segment(example, int(start), int(stop))
+            for start, stop in segment_boundaries
+        ]
+        segments = [s for s in segments if s is not None]
+
+        return segments
+
+    dataset = dataset.map(load_audio)
+    dataset = dataset.map(segment)
 
     if shuffle:
         dataset = dataset.shuffle(reshuffle=True)
 
-    dataset = dataset.map(pre_batch_transform)
-    dataset = dataset.map(segmenter)
+    dataset = dataset.batch_map(pre_batch_transform)
+    # Filter out invalid examples
+    dataset = dataset.map(lambda x: [x_ for x_ in x if x_ is not None])
 
     # FilterExceptions are only raised inside the chunking code if the
     # example is too short. If chunk_size == -1, no filter exception is raised.
-    catch_exception = segmenter.length > 0
     if prefetch:
-        dataset = dataset.prefetch(
-            8, 16, catch_filter_exception=catch_exception)
-    elif catch_exception:
+        dataset = dataset.prefetch(8, 16, catch_filter_exception=True)
+    else:
         dataset = dataset.catch()
 
     dataset = dataset.unbatch()
-    dataset = dataset.map(_set_num_samples)
 
     if shuffle:
         dataset = dataset.shuffle(reshuffle=True, buffer_size=128)
@@ -283,7 +187,7 @@ def prepare_dataset_captured(
             dataset_slice = slice(0, 100, 1)
 
     return prepare_dataset(
-        database_obj, dataset, batch_size, chunk_size,
+        database_obj.get_dataset(dataset), batch_size, chunk_size,
         shuffle=shuffle,
         prefetch=not debug,
         dataset_slice=dataset_slice,
@@ -336,7 +240,6 @@ def init(_config, _run):
 
 @ex.capture
 def prepare_and_train(_run, _log, trainer, train_dataset, validate_dataset,
-                      lr_scheduler_step, lr_scheduler_gamma,
                       load_model_from, database_json):
     trainer = get_trainer(trainer, load_model_from, _log)
 
@@ -344,32 +247,14 @@ def prepare_and_train(_run, _log, trainer, train_dataset, validate_dataset,
 
     train_dataset = prepare_dataset_captured(db, train_dataset, shuffle=True)
     validate_dataset = prepare_dataset_captured(
-        db, validate_dataset, shuffle=False, chunk_size=-1
+        db, validate_dataset, shuffle=False
     )
 
     # Perform a test run to check if everything works
     trainer.test_run(train_dataset, validate_dataset)
 
     # Register hooks and start the actual training
-
-    # Learning rate scheduler
-    if lr_scheduler_step:
-        trainer.register_hook(pt.train.hooks.LRSchedulerHook(
-            torch.optim.lr_scheduler.StepLR(
-                trainer.optimizer.optimizer,
-                step_size=lr_scheduler_step,
-                gamma=lr_scheduler_gamma,
-            )
-        ))
-
-        # Don't use LR back-off
-        trainer.register_validation_hook(validate_dataset)
-    else:
-        # Use LR back-off
-        trainer.register_validation_hook(
-            validate_dataset,  n_back_off=5, back_off_patience=3
-        )
-
+    trainer.register_validation_hook(validate_dataset)
     trainer.train(train_dataset, resume=trainer.checkpoint_dir.exists())
 
 
@@ -387,7 +272,7 @@ def get_trainer(trainer_config, load_model_from, _log):
 
 @ex.command
 def test_run(_run, _log, trainer, train_dataset, validate_dataset,
-                      load_model_from, database_json):
+             load_model_from, database_json):
     trainer = get_trainer(trainer, load_model_from, _log)
 
     db = JsonDatabase(database_json)

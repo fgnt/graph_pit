@@ -1,33 +1,51 @@
-from typing import Mapping, Optional
-
 import torch
-
-from graph_pit import graph_pit_loss
-
+import padertorch as pt
 from padertorch.contrib.cb.summary import ReviewSummary
-from padertorch.contrib.examples.source_separation.tasnet.model import TasNet
+
+from graph_pit.examples.tasnet.modules import DPRNNTasNetSeparator
+from graph_pit.loss import OptimizedGraphPITSourceAggregatedSDRLossModule
+from graph_pit.loss.base import LossModule
 
 
-class GraphPITTasNet(TasNet):
+class GraphPITTasNetModel(pt.Model):
+    """
+    A Time-Domain Audio Separation Model.
+
+    Expects a time-domain signal as input and outputs a time-domain signal.
+    """
+
     def __init__(
             self,
-            encoder: torch.nn.Module,
-            separator: torch.nn.Module,
-            decoder: torch.nn.Module,
-            loss: torch.nn.Module,
-            mask: bool = True,
-            output_nonlinearity: Optional[str] = 'sigmoid',
-            num_speakers: int = 2,
-            additional_out_size: int = 0,
+            source_separator: DPRNNTasNetSeparator,
+            loss: LossModule,
             sample_rate: int = 8000,
     ):
-        super().__init__(
-            encoder, separator, decoder, mask, output_nonlinearity,
-            num_speakers, additional_out_size, sample_rate,
-        )
+        super().__init__()
+        self.source_separator = source_separator
         self.loss = loss
+        self.sample_rate = sample_rate
 
-    def review(self, inputs: dict, outputs: dict) -> Mapping:
+    @classmethod
+    def finalize_dogmatic_config(cls, config):
+        """Default config: sa-SDR with DP solver"""
+        config['loss'] = {
+            'factory': OptimizedGraphPITSourceAggregatedSDRLossModule,
+            'permutation_solver': 'optimal_dynamic_programming',
+        }
+
+    def example_to_device(self, example, device=None):
+        for k in ('s', 'y'):
+            example[k] = pt.data.example_to_device(example[k], device=device)
+        return example
+
+    def forward(self, example: dict):
+        sequence = pt.pad_sequence(example['y'], batch_first=True)
+        sequence_lengths = example['num_samples']
+        if not torch.is_tensor(sequence_lengths):
+            sequence_lengths = torch.tensor(sequence_lengths)
+        return self.source_separator(sequence, sequence_lengths)
+
+    def review(self, inputs: dict, outputs: dict):
         review = ReviewSummary(sampling_rate=self.sample_rate)
 
         for (
@@ -41,7 +59,7 @@ class GraphPITTasNet(TasNet):
                 observation,
         ) in zip(
             inputs['num_samples'],
-            outputs['out'],
+            outputs,
             inputs['s'],
             inputs['utterance_boundaries'],
             inputs['num_speakers'],
@@ -49,8 +67,7 @@ class GraphPITTasNet(TasNet):
         ):
             # Aggregate loss as sum
             loss = self.loss(
-                model_out[:, :num_samples], targets[:, :num_samples],
-                utterance_boundaries
+                model_out[:, :num_samples], targets, utterance_boundaries
             )
 
             review.add_to_loss(loss)
@@ -71,4 +88,3 @@ class GraphPITTasNet(TasNet):
             # between examples so they get messed up in tensorboard
 
         return review
-
