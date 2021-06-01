@@ -7,6 +7,7 @@ TODO: Rename! The name "permutation_solving" is actually wrong because this
     finds assignments instead of permutations. The name is taken from the uPIT
     case.
 """
+from collections import deque
 from dataclasses import dataclass
 
 import numpy as np
@@ -363,10 +364,71 @@ class OptimalBranchAndBoundGraphPermutationSolver(GraphPermutationSolver):
         return find_best_permutation(score_matrix, 0, 0)
 
 
+@dataclass
+class OptimalDynamicProgrammingPermutationSolver(GraphPermutationSolver):
+    """
+    An assignment algorithm that runs in num_colors**num_colors * num_vertices
+    time, so it is linear in the number of vertices (but exponential in the
+    number of colors).
+
+    Warnings:
+        Assumes that the nodes are sorted so that traversing them in order never
+        leaves more than num_colors nodes in a partial state (i.e., some of its
+        neighbors are colored and some are not). If this is violated, an
+        assertion error is raised.
+    """
+    def solve_permutation(self, score_matrix, cannot_link_graph: Graph):
+        adjacency_list = [
+            [n for n in neighbors if n < node]
+            for node, neighbors in enumerate(cannot_link_graph.adjacency_list)
+        ]
+        num_colors = len(score_matrix[0])
+        all_colors = set(range(num_colors))
+
+        if not self.minimize:
+            score_matrix = -score_matrix
+
+        state_nodes = (0,)
+        candidates = {
+            (i,):  # currently relevant nodes color sequence
+                (
+                    (i,),  # coloring
+                    score,  # score
+                )
+            for i, score in enumerate(score_matrix[0])
+        }
+
+        for node in range(1, score_matrix.shape[0]):
+            neighbors = adjacency_list[node]
+
+            state_nodes = tuple([n for n in state_nodes if n not in neighbors]) + (node,)
+
+            candidates_old = candidates.copy()
+            candidates = {}
+
+            for state, (coloring, score) in candidates_old.items():
+
+                blocked_colors = {coloring[n] for n in neighbors}
+                allowed_colors = all_colors - blocked_colors
+
+                for c in allowed_colors:
+                    new_coloring = coloring + (c,)
+                    new_state = tuple([new_coloring[n] for n in state_nodes])
+                    new_score = score + score_matrix[node][c]
+
+                    if new_state in candidates:
+                        if new_score >= candidates[new_state][1]:
+                            continue
+
+                    candidates[new_state] = (new_coloring, new_score)
+        return min(candidates.items(), key=lambda x: x[1][1])[1][0]
+
+
 # Dispatchers for permutation solving using a cannot-link graph
 graph_permutation_solvers = pb.utils.mapping.Dispatcher({
     'optimal_brute_force': OptimalBruteForceGraphPermutationSolver,
     'optimal_branch_and_bound': OptimalBranchAndBoundGraphPermutationSolver,
+    'optimal_dynamic_programming': OptimalDynamicProgrammingPermutationSolver,
     'dfs': DFSGraphPermutationSolver,
     'greedy_cop': GreedyCOPGraphPermutationSolver,
 })
