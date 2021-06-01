@@ -1,4 +1,4 @@
-from graph_pit.loss.optimized import OptimizedGraphPITSDR3Loss
+from graph_pit.loss.optimized import OptimizedGraphPITSourceAggregatedSDRLoss
 from graph_pit.loss.regression import sdr_loss
 from graph_pit.loss.unoptimized import GraphPITLoss
 import torch
@@ -34,7 +34,7 @@ def test_optimized_graph_pit(
         )
     )
 
-    optimized_graph_pit = OptimizedGraphPITSDR3Loss(
+    optimized_graph_pit = OptimizedGraphPITSourceAggregatedSDRLoss(
         estimate, targets, segment_boundaries, permutation_solver=algorithm
     )
 

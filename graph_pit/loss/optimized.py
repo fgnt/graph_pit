@@ -10,14 +10,14 @@ from graph_pit.loss.base import GraphPITBase, LossModule
 from graph_pit.permutation_solving import graph_permutation_solvers
 
 __all__ = [
-    'OptimizedGraphPITSDR3Loss',
-    'OptimizedGraphPITSDR3LossModule',
-    'optimized_graph_pit_sdr3_loss',
+    'OptimizedGraphPITSourceAggregatedSDRLoss',
+    'OptimizedGraphPITSourceAggregatedSDRLossModule',
+    'optimized_graph_pit_source_aggregated_sdr_loss',
 ]
 
 
 @dataclass
-class OptimizedGraphPITSDR3Loss(GraphPITBase):
+class OptimizedGraphPITSourceAggregatedSDRLoss(GraphPITBase):
     """
     It's called SDR3 because this is the third SDR variant I
     defined. It aggregates the energies of the target and error
@@ -45,11 +45,13 @@ class OptimizedGraphPITSDR3Loss(GraphPITBase):
         for idx, (target, (start, stop)) in enumerate(zip(
                 self.targets, self.segment_boundaries
         )):
+            assert target.shape[0] > 1, target.shape
             v.append(torch.sum(
                 self.estimate[..., start:stop] * target[..., None, :],
                 dim=-1
             ))
-        return torch.stack(v)
+        similarity_matrix = torch.stack(v)
+        return similarity_matrix
 
     @cached_property
     def best_coloring(self):
@@ -80,22 +82,22 @@ class OptimizedGraphPITSDR3Loss(GraphPITBase):
         return -10 * torch.log10(sdr)
 
 
-def optimized_graph_pit_sdr3_loss(
+def optimized_graph_pit_source_aggregated_sdr_loss(
         estimate, targets, segment_boundaries, permutation_solver
 ):
-    return OptimizedGraphPITSDR3Loss(
+    return OptimizedGraphPITSourceAggregatedSDRLoss(
         estimate, targets, segment_boundaries,
         permutation_solver=permutation_solver
     ).loss
 
 
-class OptimizedGraphPITSDR3LossModule(LossModule):
+class OptimizedGraphPITSourceAggregatedSDRLossModule(LossModule):
     def __init__(self, permutation_solver):
         super().__init__()
         self.permutation_solver = permutation_solver
 
     def get_loss_object(self, estimate, targets, segment_boundaries):
-        return OptimizedGraphPITSDR3Loss(
+        return OptimizedGraphPITSourceAggregatedSDRLoss(
             estimate, targets, segment_boundaries,
             permutation_solver=self.permutation_solver
         )
