@@ -13,7 +13,6 @@ from dataclasses import dataclass
 import numpy as np
 
 import paderbox as pb
-from paderbox.utils.functional import partial_decorator
 from .graph import Graph
 
 import logging
@@ -271,41 +270,44 @@ class DFSGraphPermutationSolver(GraphPermutationSolver):
         >>> solve_permutation_graph_dfs(score_matrix, graph)
         array([2, 0])
     """
+
     def solve_permutation(self, score_matrix, cannot_link_graph):
+        stack = deque()
         N, K = score_matrix.shape
 
-        if self.minimize:
+        if not self.minimize:
             score_matrix = -score_matrix
 
-        def find_permutation(score_matrix, depth):
-            score_matrix_flat = score_matrix.reshape(N * K)
-            for idx in np.argsort(score_matrix_flat)[::-1]:
-                if score_matrix_flat[idx] == float('-inf'):
-                    # This means the whole matrix is filled with -inf.
-                    # There is no solution on this path.
-                    return None
+        score_matrix_flat = score_matrix.reshape(N * K)
+        sorted_indices = np.argsort(score_matrix_flat)
+        #     print(score_matrix_flat[sorted_indices])
 
-                i, j = np.unravel_index(idx, score_matrix.shape)
+        # a state is (coloring, sorted_index, mask, depth)
+        stack.append((-np.ones(N, dtype=np.int), 0, np.zeros_like(score_matrix, dtype=np.bool), 0))
 
-                _score_matrix = score_matrix.copy()
-                # Remove the usual candidates (same row)
-                _score_matrix[(i, slice(None))] = float('-inf')
+        while stack:
+            #         print('pop')
+            coloring, sorted_index, mask, depth = stack.pop()
+            mask_flat = mask.reshape(N * K)
 
-                # Remove candidates from the cannot-link graph
-                for k in cannot_link_graph.neighbors_of(i):
-                    _score_matrix[(k, j)] = float('-inf')
+            for idx in range(sorted_index, score_matrix_flat.shape[0]):
+                sidx = sorted_indices[idx]
+                if mask_flat[sidx]:
+                    continue
 
-                permutation = find_permutation(_score_matrix, depth + 1)
-                if permutation is None:
-                    if depth < N:
-                        # No solution for this path
-                        continue
-                    permutation = -np.ones(N, dtype=np.int)
-                assert depth <= N
-                permutation[i] = j
-                return permutation
+                # Push current state
+                i, j = np.unravel_index(sidx, score_matrix.shape)
+                stack.append((coloring.copy(), idx + 1, mask.copy(), depth))
 
-        return find_permutation(score_matrix, 1)
+                # update state
+                # print('update', i, j)
+                coloring[i] = j
+                mask[i, :] = True
+                for k in cannot_link_graph.adjacency_list[i]:
+                    mask[k, j] = True
+                depth = depth + 1
+                if depth == N:
+                    return coloring
 
 
 class OptimalBranchAndBoundGraphPermutationSolver(GraphPermutationSolver):
