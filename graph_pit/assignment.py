@@ -13,7 +13,7 @@ from .graph import Graph
 
 import logging
 
-logger = logging.getLogger('graph-permutation-solver')
+logger = logging.getLogger('graph-assignment-solver')
 
 
 def _find_mapping_apply_connected_components(
