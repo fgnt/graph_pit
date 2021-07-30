@@ -131,7 +131,12 @@ class GraphPITLossModule(LossModule):
         super().__init__()
         self.loss_fn = loss_fn
 
-    def get_loss_object(self, estimate, targets, segment_boundaries):
+    def get_loss_object(
+            self,
+            estimate: torch.Tensor,
+            targets: List[torch.Tensor],
+            segment_boundaries: List[Tuple[int, int]],
+    ) -> GraphPITLoss:
         return GraphPITLoss(
             estimate, targets, segment_boundaries,
             loss_fn=self.loss_fn,

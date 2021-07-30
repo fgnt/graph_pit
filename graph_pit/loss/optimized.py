@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Union, Callable
+from typing import Union, Callable, List, Tuple
 import torch
 import numpy as np
 
@@ -19,24 +19,41 @@ __all__ = [
 @dataclass
 class OptimizedGraphPITSourceAggregatedSDRLoss(GraphPITBase):
     """
-    It's called SDR3 because this is the third SDR variant I
-    defined. It aggregates the energies of the target and error
+    The sa-SDR with "optimized" assignment algorithms from [1]. The assignment
+    solver can be selected by setting `permutation_solver` to one of
+     - 'optimal_brute_force'
+     - 'optimal_branch_and_bound'
+     - 'optimal_dynamic_programming'
+     - 'dfs'
+     - 'greedy_cop'
+
+    The loss aggregates the energies of the target and error
     signals in the fraction.
+
+    TODO: Fix references when paper is published on IEEExplore
+
+    References:
+        [1] Speeding up Permutation Invariant Training
     """
-    permutation_solver: Union[Callable, str] = 'optimal_brute_force'
+    assignment_solver: Union[Callable, str] = 'optimal_brute_force'
 
     def __post_init__(self):
         super().__post_init__()
 
-        if not callable(self.permutation_solver):
-            self.permutation_solver = (
-                graph_assignment_solvers[self.permutation_solver]
+        if not callable(self.assignment_solver):
+            self.assignment_solver = (
+                graph_assignment_solvers[self.assignment_solver]
             )(minimize=False)
 
     @cached_property
-    def similarity_matrix(self):
+    def similarity_matrix(self) -> torch.Tensor:
         """
         # TODO: can this be optimized?
+
+        This computes the matrix-matrix product but ignores anything that lies
+        outside the segment boundaries (and is by definition 0).
+
+        TODO: Could a sparse tensor be faster?
 
         Returns:
             Shape: (num_targets, num_estimates)
@@ -53,16 +70,16 @@ class OptimizedGraphPITSourceAggregatedSDRLoss(GraphPITBase):
         return similarity_matrix
 
     @cached_property
-    def best_coloring(self):
+    def best_coloring(self) -> tuple:
         similarity_matrix = self.similarity_matrix
-        x = self.permutation_solver(
+        x = self.assignment_solver(
             pt.utils.to_numpy(similarity_matrix, detach=True), self.graph
         )
         assert x is not None
-        return x
+        return tuple(x)
 
     @cached_property
-    def loss(self):
+    def loss(self) -> torch.Tensor:
         # Compute target and estimate energies
         target_energy = torch.sum(
             torch.stack([torch.sum(t ** 2) for t in self.targets])
@@ -82,24 +99,39 @@ class OptimizedGraphPITSourceAggregatedSDRLoss(GraphPITBase):
 
 
 def optimized_graph_pit_source_aggregated_sdr_loss(
-        estimate, targets, segment_boundaries, permutation_solver
-):
+        estimate: torch.Tensor, targets: torch.Tensor,
+        segment_boundaries: List[Tuple[int, int]],
+        assignment_solver: Union[Callable, str] = OptimizedGraphPITSourceAggregatedSDRLoss.assignment_solver
+) -> torch.Tensor:
+    """
+    Function form of the sa-SDR Graph-PIT loss.
+    """
     return OptimizedGraphPITSourceAggregatedSDRLoss(
         estimate, targets, segment_boundaries,
-        permutation_solver=permutation_solver
+        assignment_solver=assignment_solver
     ).loss
 
 
 class OptimizedGraphPITSourceAggregatedSDRLossModule(LossModule):
-    def __init__(self, permutation_solver):
+    def __init__(
+            self,
+            assignment_solver: Union[Callable, str] = OptimizedGraphPITSourceAggregatedSDRLoss.assignment_solver
+    ):
+        """
+        The sa-SDR Graph-PIT loss as a `Torch.nn.Module`. Can be used in a torch
+        module.
+        """
         super().__init__()
-        self.permutation_solver = permutation_solver
+        self.assignment_solver = assignment_solver
 
-    def get_loss_object(self, estimate, targets, segment_boundaries):
+    def get_loss_object(
+            self, estimate: torch.Tensor, targets: torch.Tensor,
+            segment_boundaries: List[Tuple[int, int]],
+    ) -> OptimizedGraphPITSourceAggregatedSDRLoss:
         return OptimizedGraphPITSourceAggregatedSDRLoss(
             estimate, targets, segment_boundaries,
-            permutation_solver=self.permutation_solver
+            assignment_solver=self.assignment_solver
         )
 
     def extra_repr(self) -> str:
-        return f'{self.permutation_solver}, '
+        return f'{self.assignment_solver}, '

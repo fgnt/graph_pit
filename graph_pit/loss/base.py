@@ -35,7 +35,7 @@ class GraphPITBase:
         return get_overlap_graph(self.segment_boundaries)
 
     @property
-    def loss(self):
+    def loss(self) -> torch.Tensor:
         raise NotImplementedError()
 
     @property
@@ -44,14 +44,24 @@ class GraphPITBase:
 
 
 class LossModule(torch.nn.Module):
-    def get_loss_object(self, estimate, targets, segment_boundaries):
+    def get_loss_object(
+            self,
+            estimate: torch.Tensor,
+            targets: List[torch.Tensor],
+            segment_boundaries: List[Tuple[int, int]],
+    ) -> GraphPITBase:
         raise NotImplementedError()
 
-    def forward(self, estimate, targets, segment_boundaries):
+    def forward(
+            self,
+            estimate: torch.Tensor,
+            targets: List[torch.Tensor],
+            segment_boundaries: List[Tuple[int, int]],
+    ) -> torch.Tensor:
         return self.get_loss_object(estimate, targets, segment_boundaries).loss
 
 
-def get_overlap_graph(segment_boundaries: List[Tuple[int, int]]):
+def get_overlap_graph(segment_boundaries: List[Tuple[int, int]]) -> Graph:
     edges = get_overlaps_from_segment_boundaries(segment_boundaries)
     graph = EdgeListGraph(len(segment_boundaries), edges)
 

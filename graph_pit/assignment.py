@@ -2,6 +2,9 @@
 This file contains algorithms for finding graph-pit assignments similar to
 tvn.algorithm.permutation_solving but with cannot-link constraints described by
 a cannot-link graph.
+
+References:
+    [1] Speeding Up Permutation Invariant Training for Source Separation
 """
 from collections import deque
 from dataclasses import dataclass
@@ -17,7 +20,7 @@ logger = logging.getLogger('graph-assignment-solver')
 
 
 def _find_mapping_apply_connected_components(
-        permutation_solver, score_matrix, cannot_link_graph, **kwargs
+        assignment_solver, score_matrix, cannot_link_graph, **kwargs
 ):
     num_targets, num_estimates = score_matrix.shape
     assert num_targets == cannot_link_graph.num_vertices, (
@@ -28,7 +31,7 @@ def _find_mapping_apply_connected_components(
 
     for connected_component in cannot_link_graph.connected_components:
         cc_score_matrix = score_matrix[(connected_component.labels, slice(None))]
-        partial_solution = permutation_solver(
+        partial_solution = assignment_solver(
             cc_score_matrix, connected_component, **kwargs
         )
         if partial_solution is None:
@@ -40,32 +43,64 @@ def _find_mapping_apply_connected_components(
 
 @dataclass
 class GraphAssignmentSolver:
+    """
+    Base class for graph-based assignment solvers.
+
+    Attributes:
+        minimize: If `True`, find the minimum. Otherwise, find the maximum
+        optimize_connected_components: If `True`, the assignment algorithm is
+            applied to each connected component of the graph individually.
+    """
     minimize: bool = False
     optimize_connected_components: bool = True
 
     def __call__(self, score_matrix, cannot_link_graph):
         score_matrix = np.asanyarray(score_matrix)
-        assert np.issubdtype(score_matrix.dtype, np.floating), score_matrix.dtype
-        num_targets, num_estimates = score_matrix.shape
-        assert num_targets == cannot_link_graph.num_vertices, (
-            num_targets, cannot_link_graph.num_vertices
-        )
+        self._check_inputs(score_matrix, cannot_link_graph)
 
         if self.optimize_connected_components:
             coloring = _find_mapping_apply_connected_components(
-                self.solve_permutation, score_matrix, cannot_link_graph
+                self.find_assignment, score_matrix, cannot_link_graph
             )
         else:
-            coloring = self.solve_permutation(score_matrix, cannot_link_graph)
+            coloring = self.find_assignment(score_matrix, cannot_link_graph)
 
         if coloring is None:
+            num_targets, num_estimates = score_matrix.shape
             logger.debug(
-                f'Couldn\'t find a solution because there is no graph coloring '
-                f'for the graph {cannot_link_graph} with {num_estimates} colors'
+                f'Couldn\'t find a solution with the permutation solver '
+                f'{self.__class__.__name__}. This could mean that the '
+                f'cannot_link_graph is not colorable with {num_estimates} '
+                f'colors.'
             )
         return coloring
 
-    def solve_permutation(self, score_matrix, cannot_link_graph):
+    def _check_inputs(self, score_matrix, cannot_link_graph):
+        num_targets, num_estimates = score_matrix.shape
+
+        if not np.issubdtype(score_matrix.dtype, np.floating):
+            raise TypeError(
+                f'The score matrix must be floating point, not '
+                f'{score_matrix.dtype}!'
+            )
+        if num_targets != cannot_link_graph.num_vertices:
+            raise ValueError(
+                f'The shape of score_matrix and number of vertices in the'
+                f' cannot_link_graph must match, but '
+                f'score_matrix.shape={score_matrix.shape}, '
+                f'cannot_link_graph.num_vertices={cannot_link_graph.num_vertices}'
+            )
+
+    def find_assignment(self, score_matrix: np.ndarray, cannot_link_graph: Graph):
+        """
+        Runs the assignment algorithm.
+
+        Args:
+            score_matrix (num_targets num_estimates): The score matrix to use
+            cannot_link_graph: The graph that describes the overlaps / entries
+                in `score_matrix` that cannot be used together. Has to have
+                `num_targets` vertices.
+        """
         raise NotImplementedError()
 
 
@@ -75,7 +110,7 @@ class OptimalBruteForceGraphAssignmentSolver(GraphAssignmentSolver):
     assignment and returns the one with the smallest (or largest, if
     `minimize`=False) score.
     """
-    def solve_permutation(self, score_matrix, cannot_link_graph):
+    def find_assignment(self, score_matrix, cannot_link_graph):
         num_targets, num_estimates = score_matrix.shape
         colorings = list(
             cannot_link_graph.enumerate_graph_colorings(num_estimates)
@@ -142,21 +177,21 @@ class GreedyCOPGraphAssignmentSolver(GraphAssignmentSolver):
           [1] Wagstaff, Kiri, Claire Cardie, Seth Rogers, and Stefan Schroedl.
               “Constrained K-Means Clustering with Background Knowledge,”
       """
-    def solve_permutation(self, score_matrix, cannot_link_graph):
+    def find_assignment(self, score_matrix, cannot_link_graph):
         if not self.minimize:
             score_matrix = -score_matrix
 
-        N, K = score_matrix.shape
-        coloring = -np.ones(N, dtype=np.int)
+        num_targets, num_estimates = score_matrix.shape
+        coloring = -np.ones(num_targets, dtype=np.int)
 
         # Copy the score matrix because we are going to modify it
         score_matrix: np.ndarray = score_matrix.copy()
         # score_matrix_flat is a view in score_matrix
         # -> changing score_matrix also changes score_matrix_flat
-        score_matrix_flat = score_matrix.reshape(N * K)
+        score_matrix_flat = score_matrix.reshape(num_targets * num_estimates)
 
         mask = np.zeros(score_matrix.shape, dtype=bool)
-        mask_flat = mask.reshape(N * K)
+        mask_flat = mask.reshape(num_targets * num_estimates)
 
         # argmax does not support axis=(-2, -1)
         # -> use score_matrix_flat
@@ -214,7 +249,7 @@ class DFSGraphAssignmentSolver(GraphAssignmentSolver):
         an index along the K axis.
     """
 
-    def solve_permutation(self, score_matrix, cannot_link_graph):
+    def find_assignment(self, score_matrix, cannot_link_graph):
         stack = deque()
         N, K = score_matrix.shape
 
@@ -223,13 +258,16 @@ class DFSGraphAssignmentSolver(GraphAssignmentSolver):
 
         score_matrix_flat = score_matrix.reshape(N * K)
         sorted_indices = np.argsort(score_matrix_flat)
-        #     print(score_matrix_flat[sorted_indices])
 
         # a state is (coloring, sorted_index, mask, depth)
-        stack.append((-np.ones(N, dtype=np.int), 0, np.zeros_like(score_matrix, dtype=np.bool), 0))
+        # Saving a boolean mask saves some memory compared to saving the full
+        # modified score matrix.
+        stack.append(
+            (-np.ones(N, dtype=np.int), 0,
+             np.zeros_like(score_matrix, dtype=np.bool), 0)
+        )
 
         while stack:
-            #         print('pop')
             coloring, sorted_index, mask, depth = stack.pop()
             mask_flat = mask.reshape(N * K)
 
@@ -243,7 +281,6 @@ class DFSGraphAssignmentSolver(GraphAssignmentSolver):
                 stack.append((coloring.copy(), idx + 1, mask.copy(), depth))
 
                 # update state
-                # print('update', i, j)
                 coloring[i] = j
                 mask[i, :] = True
                 for k in cannot_link_graph.adjacency_list[i]:
@@ -263,8 +300,8 @@ class OptimalBranchAndBoundGraphAssignmentSolver(GraphAssignmentSolver):
         many cases a lot faster. The better the scores are, the faster the
         algorithm becomes.
     """
-    def solve_permutation(self, score_matrix, cannot_link_graph):
-        N, K = score_matrix.shape
+    def find_assignment(self, score_matrix, cannot_link_graph):
+        num_targets, num_estimates = score_matrix.shape
 
         if not self.minimize:
             score_matrix = -score_matrix
@@ -288,7 +325,7 @@ class OptimalBranchAndBoundGraphAssignmentSolver(GraphAssignmentSolver):
                 if best_cost is not None and current_cost >= best_cost:
                     return best_perm
 
-                if depth == N - 1:
+                if depth == num_targets - 1:
                     # We are at a leaf (or, one before leaf node)
                     best_cost = current_cost
                     return (idx,)
@@ -300,7 +337,9 @@ class OptimalBranchAndBoundGraphAssignmentSolver(GraphAssignmentSolver):
                     if k >= 0:
                         _cost_matrix[(k, idx)] = float('inf')
 
-                perm = find_best_permutation(_cost_matrix, current_cost, depth + 1)
+                perm = find_best_permutation(
+                    _cost_matrix, current_cost, depth + 1
+                )
 
                 if perm is not None:
                     best_perm = (idx,) + perm
@@ -322,7 +361,7 @@ class OptimalDynamicProgrammingAssignmentSolver(GraphAssignmentSolver):
         neighbors are colored and some are not). If this is violated, an
         assertion error is raised.
     """
-    def solve_permutation(self, score_matrix, cannot_link_graph: Graph):
+    def find_assignment(self, score_matrix, cannot_link_graph: Graph):
         # TODO: Check if adjacency list is valid (i.e., sorted)
         adjacency_list = [
             [n for n in neighbors if n < node]
@@ -335,7 +374,6 @@ class OptimalDynamicProgrammingAssignmentSolver(GraphAssignmentSolver):
             score_matrix = -score_matrix
         score_matrix -= np.min(score_matrix)
 
-        state_nodes = (0,)
         candidates = {
             (i,):  # currently relevant nodes color sequence
                 (
