@@ -1,6 +1,6 @@
 # Graph-PIT: Generalized permutation invariant training for continuous separation of arbitrary numbers of speakers
 
-![GitHub Actions](https://github.com/thequilo/graph_pit/actions/workflows/python-package.yml/badge.svg)
+![GitHub Actions](https://github.com/thequilo/graph_pit/actions/workflows/pytest.yml/badge.svg)
 
 This repository contains a PyTorch implementation of the Graph-PIT objective proposed in the paper ["Graph-PIT:
 Generalized permutation invariant training for continuous separation of arbitrary numbers of speakers"](https://arxiv.org/abs/2107.14446), submitted to
