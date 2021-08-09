@@ -1,3 +1,9 @@
-# These are requirements for paderbox and padertorch
 numpy
+torch
+pytest
+cached_property
+git+git://github.com/fgnt/paderbox@releases/tag/v3.7.1#egg=paderbox
+git+git://github.com/fgnt/padertorch@releases/tag/v3.7.1#egg=padertorch
+
+# These are requirements for paderbox and padertorch
 Cython
