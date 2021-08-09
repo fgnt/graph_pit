@@ -27,7 +27,7 @@ def _find_mapping_apply_connected_components(
         num_targets, cannot_link_graph.num_vertices
     )
 
-    mapping = np.zeros(num_targets, dtype=np.int)
+    mapping = np.zeros(num_targets, dtype=int)
 
     for connected_component in cannot_link_graph.connected_components:
         cc_sm = score_matrix[(connected_component.labels, slice(None))]
@@ -187,7 +187,7 @@ class GreedyCOPGraphAssignmentSolver(GraphAssignmentSolver):
             score_matrix = -score_matrix
 
         num_targets, num_estimates = score_matrix.shape
-        coloring = -np.ones(num_targets, dtype=np.int)
+        coloring = -np.ones(num_targets, dtype=int)
 
         # Copy the score matrix because we are going to modify it
         score_matrix: np.ndarray = score_matrix.copy()
@@ -268,8 +268,8 @@ class DFSGraphAssignmentSolver(GraphAssignmentSolver):
         # Saving a boolean mask saves some memory compared to saving the full
         # modified score matrix.
         stack.append(
-            (-np.ones(N, dtype=np.int), 0,
-             np.zeros_like(score_matrix, dtype=np.bool), 0)
+            (-np.ones(N, dtype=int), 0,
+             np.zeros_like(score_matrix, dtype=bool), 0)
         )
 
         while stack:
