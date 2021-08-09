@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from functools import cached_property
+from cached_property import cached_property
 from typing import Union, Callable, List, Tuple
 import torch
 import numpy as np
