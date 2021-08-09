@@ -1,10 +1,8 @@
 # Graph-PIT: Generalized permutation invariant training for continuous separation of arbitrary numbers of speakers
 
-This repository contains a PyTorch implementation of the Graph-PIT objective proposed in the paper "Graph-PIT:
-Generalized permutation invariant training for continuous separation of arbitrary numbers of speakers", submitted to
-INTERSPEECH 2021.
-
-**:warning: This repository is under construction!**
+This repository contains a PyTorch implementation of the Graph-PIT objective proposed in the paper ["Graph-PIT:
+Generalized permutation invariant training for continuous separation of arbitrary numbers of speakers"](https://arxiv.org/abs/2107.14446), submitted to
+INTERSPEECH 2021 and the optimized variant from the paper ["Speeding up permutation invariant training for source separation"](https://arxiv.org/abs/2107.14445), submitted to the 14th ITG conference on Speech Communication 2021.
 
 ## Installation
 
@@ -21,6 +19,14 @@ git clone https://github.com/fgnt/graph_pit.git
 pip install -e graph_pit
 ```
 
+This will install the basic dependencies of the package. 
+If you want to run the example or the tests, install their requirements with
+
+```shell
+pip install -e 'graph_pit[example]' # Installs example requirements
+pip install -e 'graph_pit[test]'    # Installs test requirements
+pip install -e 'graph_pit[all]'     # Installs all requirements
+```
 ## Usage
 
 The default Graph-PIT loss can be used as follows:
@@ -107,10 +113,11 @@ constrained permutation solving algorithm on this similarity matrix.
 
 ## Cite this work
 
-If you use this code, please cite the paper:
+If you use this code, please cite the papers:
 
-**TODO: Insert bibtex citation when paper is accepted**
+**TODO: Insert bibtex citation when papers are accepted / published**
 
-```
-Graph-PIT: Generalized permutation invariant training for continuous separation of arbitrary numbers of speakers
-```
+
+- "Graph-PIT: Generalized permutation invariant training for continuous separation of arbitrary numbers of speakers": https://arxiv.org/abs/2107.14446
+- "Speeding up permutation invariant training for source separation": https://arxiv.org/abs/2107.14445
+
