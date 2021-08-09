@@ -1,8 +1,7 @@
 import copy
 import numpy as np
 import paderbox as pb
-from sms_wsj.database.utils import extract_piece, get_white_noise_for_signal, \
-    synchronize_speech_source
+from sms_wsj.database.utils import extract_piece, get_white_noise_for_signal
 
 
 def cut_segment(
@@ -56,7 +55,8 @@ def cut_segment(
             if value.ndim >= 2:
                 return np.stack([
                     copy_value(k, v)
-                    for v, c_active in zip(value, active_utterances) if c_active
+                    for v, c_active in zip(value, active_utterances)
+                    if c_active
                 ])
         return copy_value(k, value)
 
@@ -75,7 +75,9 @@ def cut_segment(
     example['num_samples']['observation'] = stop - start
     if 'speech_onset' in example:
         example['speech_onset'] = [o - start for o in example['speech_onset']]
-        example['speech_offset'] = [o - start for o in example['speech_offset']]
+        example['speech_offset'] = [
+            o - start for o in example['speech_offset']
+        ]
 
     return example
 
@@ -142,8 +144,8 @@ def single_channel_scenario_map_fn(
     s = example['audio_data']['original_source']
     offset = example['offset']
 
-    # In some databases (e.g., WSJ) the utterances are not mean normalized. This
-    # leads to jumps when padding with zeros or concatenating recordings.
+    # In some databases (e.g., WSJ) the utterances are not mean normalized.
+    # This leads to jumps when padding with zeros or concatenating recordings.
     # We mean-normalize here to eliminate these jumps
     if normalize_sources:
         s = [s_ - np.mean(s_) for s_ in s]

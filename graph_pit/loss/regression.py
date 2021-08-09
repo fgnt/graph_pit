@@ -155,5 +155,3 @@ class ThresholdedSDRLoss(torch.nn.Module):
             f'max_sdr={self.max_sdr}, epsilon={self.epsilon}, '
             f'reduction={self.reduction}'
         )
-
-

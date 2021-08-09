@@ -6,7 +6,9 @@ import padertorch as pt
 from padertorch.modules.dual_path_rnn import apply_examplewise
 from padertorch.ops.mappings import ACTIVATION_FN_MAP
 
-from graph_pit.examples.tasnet.coders import ConvolutionalEncoder, ConvolutionalDecoder
+from graph_pit.examples.tasnet.coders import ConvolutionalEncoder, \
+    ConvolutionalDecoder
+
 
 class SeparationNetwork(pt.Module):
     def __init__(
@@ -106,7 +108,10 @@ class SourceSeparator(pt.Module):
         reconstructed = rearrange(self.decoder(
             rearrange(separated, 'b k t f -> (b k) t f'),
             encoded_sequence_length
-        ), '(b k) t -> b k t', b=signal.shape[0], k=self.separator.num_speakers)
+        ), '(b k) t -> b k t',
+            b=signal.shape[0],
+            k=self.separator.num_speakers
+        )
 
         # The length can be slightly longer than the input length
         reconstructed = reconstructed[..., :signal.shape[-1]]
@@ -126,7 +131,8 @@ class SourceSeparator(pt.Module):
 class DPRNNTasNetSeparator(SourceSeparator):
     @classmethod
     def finalize_dogmatic_config(
-            cls, config, feature_size=64, hidden_size=64, encoder_window_size=16
+            cls, config, feature_size=64, hidden_size=64,
+            encoder_window_size=16
     ):
         num_speakers = 2
 

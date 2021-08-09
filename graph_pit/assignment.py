@@ -30,9 +30,9 @@ def _find_mapping_apply_connected_components(
     mapping = np.zeros(num_targets, dtype=np.int)
 
     for connected_component in cannot_link_graph.connected_components:
-        cc_score_matrix = score_matrix[(connected_component.labels, slice(None))]
+        cc_sm = score_matrix[(connected_component.labels, slice(None))]
         partial_solution = assignment_solver(
-            cc_score_matrix, connected_component, **kwargs
+            cc_sm, connected_component, **kwargs
         )
         if partial_solution is None:
             return None
@@ -88,10 +88,13 @@ class GraphAssignmentSolver:
                 f'The shape of score_matrix and number of vertices in the'
                 f' cannot_link_graph must match, but '
                 f'score_matrix.shape={score_matrix.shape}, '
-                f'cannot_link_graph.num_vertices={cannot_link_graph.num_vertices}'
+                f'cannot_link_graph.num_vertices='
+                f'{cannot_link_graph.num_vertices}'
             )
 
-    def find_assignment(self, score_matrix: np.ndarray, cannot_link_graph: Graph):
+    def find_assignment(
+            self, score_matrix: np.ndarray, cannot_link_graph: Graph
+    ):
         """
         Runs the assignment algorithm.
 
@@ -110,6 +113,7 @@ class OptimalBruteForceGraphAssignmentSolver(GraphAssignmentSolver):
     assignment and returns the one with the smallest (or largest, if
     `minimize`=False) score.
     """
+
     def find_assignment(self, score_matrix, cannot_link_graph):
         num_targets, num_estimates = score_matrix.shape
         colorings = list(
@@ -119,8 +123,8 @@ class OptimalBruteForceGraphAssignmentSolver(GraphAssignmentSolver):
         if not colorings:
             return None
 
-        # This is the old loop-based implementation. I'd like to keep it here in
-        # case the indexing-based variant becomes too memory demanding
+        # This is the old loop-based implementation. I'd like to keep it here
+        # in case the indexing-based variant becomes too memory demanding
         #
         # best = RunningValue('min' if minimize else 'max')
         #
@@ -162,8 +166,8 @@ class GreedyCOPGraphAssignmentSolver(GraphAssignmentSolver):
 
       Has a runtime of O(N**2 log(N))
           - sort values of NxN matrix: O(N**2 log(N))
-          - Go through the sorted values and select the best ones respecting the
-              constraints: O(N**2)
+          - Go through the sorted values and select the best ones respecting
+            the constraints: O(N**2)
 
       Note:
           This algorithm does not always find a solution. It returns `None` if
@@ -177,6 +181,7 @@ class GreedyCOPGraphAssignmentSolver(GraphAssignmentSolver):
           [1] Wagstaff, Kiri, Claire Cardie, Seth Rogers, and Stefan Schroedl.
               “Constrained K-Means Clustering with Background Knowledge,”
       """
+
     def find_assignment(self, score_matrix, cannot_link_graph):
         if not self.minimize:
             score_matrix = -score_matrix
@@ -296,10 +301,11 @@ class OptimalBranchAndBoundGraphAssignmentSolver(GraphAssignmentSolver):
     permutation problem.
 
     Runtime:
-        Has the same worst-case complexity as the brute-force variant, but is in
-        many cases a lot faster. The better the scores are, the faster the
+        Has the same worst-case complexity as the brute-force variant, but is
+        in many cases a lot faster. The better the scores are, the faster the
         algorithm becomes.
     """
+
     def find_assignment(self, score_matrix, cannot_link_graph):
         num_targets, num_estimates = score_matrix.shape
 
@@ -307,9 +313,11 @@ class OptimalBranchAndBoundGraphAssignmentSolver(GraphAssignmentSolver):
             score_matrix = -score_matrix
 
         # Make sure there are no negative values in the matrix
-        # We can subtract the minimum from each column (or is this a row?). This
-        # could make things easier to compute
-        score_matrix = score_matrix - np.min(score_matrix, axis=-1, keepdims=True)
+        # We can subtract the minimum from each column (or is this a row?).
+        # This could make things easier to compute
+        score_matrix = score_matrix - np.min(
+            score_matrix, axis=-1, keepdims=True
+        )
         assert np.all(score_matrix >= 0), score_matrix
 
         best_cost = None
@@ -356,11 +364,12 @@ class OptimalDynamicProgrammingAssignmentSolver(GraphAssignmentSolver):
     number of colors).
 
     Warnings:
-        Assumes that the nodes are sorted so that traversing them in order never
-        leaves more than num_colors nodes in a partial state (i.e., some of its
-        neighbors are colored and some are not). If this is violated, an
+        Assumes that the nodes are sorted so that traversing them in order
+        never leaves more than num_colors nodes in a partial state (i.e., some
+        of its neighbors are colored and some are not). If this is violated, an
         assertion error is raised.
     """
+
     def find_assignment(self, score_matrix, cannot_link_graph: Graph):
         # TODO: Check if adjacency list is valid (i.e., sorted)
         adjacency_list = [
@@ -375,11 +384,10 @@ class OptimalDynamicProgrammingAssignmentSolver(GraphAssignmentSolver):
         score_matrix -= np.min(score_matrix)
 
         candidates = {
-            (i,):  # currently relevant nodes color sequence
-                (
-                    (i,),  # coloring
-                    score,  # score
-                )
+            (i,): (     # currently relevant nodes color sequence
+                (i,),  # coloring
+                score,  # score
+            )
             for i, score in enumerate(score_matrix[0])
         }
 

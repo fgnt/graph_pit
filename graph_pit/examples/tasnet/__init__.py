@@ -1,1 +1,1 @@
-from . import model, train
+from . import model, train  # noqa

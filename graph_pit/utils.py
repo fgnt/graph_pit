@@ -29,7 +29,9 @@ def get_overlaps_from_segment_boundaries(
     `segment_boundaries` where these segments overlap.
 
     Examples:
-        >>> segment_boundaries = [(0, 10), (11, 14), (12, 17), (16, 20), (21, 30)]
+        >>> segment_boundaries = [
+        ...    (0, 10), (11, 14), (12, 17), (16, 20), (21, 30)
+        ... ]
         >>> sorted(get_overlaps_from_segment_boundaries(segment_boundaries))
         [(1, 2), (2, 3)]
     """
