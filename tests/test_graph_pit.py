@@ -52,14 +52,14 @@ def test_graph_pit_exceptions():
                   'segment boundaries!'
     ):
         graph_pit_loss(torch.zeros(2, 100), torch.zeros(3, 100),
-            [(0, 100), (0, 100)], torch.nn.functional.mse_loss)
+                       [(0, 100), (0, 100)], torch.nn.functional.mse_loss)
 
     with pytest.raises(
             ValueError,
             match='Length mismatch between target and segment_boundaries'
     ):
         graph_pit_loss(torch.zeros(3, 100), torch.zeros(2, 100),
-            [(0, 50), (0, 100)], torch.nn.functional.mse_loss)
+                       [(0, 50), (0, 100)], torch.nn.functional.mse_loss)
 
 
 if __name__ == '__main__':

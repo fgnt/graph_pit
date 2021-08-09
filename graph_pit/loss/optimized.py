@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from functools import cached_property
+from cached_property import cached_property
 from typing import Union, Callable, List, Tuple
 import torch
 import numpy as np
@@ -93,15 +93,19 @@ class OptimizedGraphPITSourceAggregatedSDRLoss(GraphPITBase):
             ]
         )
 
-        # Compute the final SDR as (|s|^2)/(|s|^2 + |shat|^2 + sum(matmul(s, shat)))
-        sdr = target_energy / (target_energy + estimate_energy - 2 * similarity)
+        # Compute the final SDR as
+        # (|s|^2)/(|s|^2 + |shat|^2 + sum(matmul(s, shat)))
+        sdr = target_energy / (
+                target_energy + estimate_energy - 2 * similarity
+        )
         return -10 * torch.log10(sdr)
 
 
 def optimized_graph_pit_source_aggregated_sdr_loss(
         estimate: torch.Tensor, targets: torch.Tensor,
         segment_boundaries: List[Tuple[int, int]],
-        assignment_solver: Union[Callable, str] = OptimizedGraphPITSourceAggregatedSDRLoss.assignment_solver
+        assignment_solver: Union[Callable, str] =
+        OptimizedGraphPITSourceAggregatedSDRLoss.assignment_solver
 ) -> torch.Tensor:
     """
     Function form of the sa-SDR Graph-PIT loss.
@@ -115,11 +119,12 @@ def optimized_graph_pit_source_aggregated_sdr_loss(
 class OptimizedGraphPITSourceAggregatedSDRLossModule(LossModule):
     def __init__(
             self,
-            assignment_solver: Union[Callable, str] = OptimizedGraphPITSourceAggregatedSDRLoss.assignment_solver
+            assignment_solver: Union[Callable, str] =
+            OptimizedGraphPITSourceAggregatedSDRLoss.assignment_solver
     ):
         """
-        The sa-SDR Graph-PIT loss as a `Torch.nn.Module`. Can be used in a torch
-        module.
+        The sa-SDR Graph-PIT loss as a `Torch.nn.Module`. Can be used in a
+        torch module.
         """
         super().__init__()
         self.assignment_solver = assignment_solver

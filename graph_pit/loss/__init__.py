@@ -1,3 +1,3 @@
-from .unoptimized import *
-from .optimized import *
-from .regression import *
+from .unoptimized import *  # noqa
+from .optimized import *    # noqa
+from .regression import *   # noqa

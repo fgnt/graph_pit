@@ -27,7 +27,9 @@ def _random_graph(num_vertices, window_size):
 
 def _check_valid_solution(coloring: Tuple, graph: Graph):
     num_colors = max(coloring) + 1
-    valid_colorings = list(map(tuple, graph.enumerate_graph_colorings(num_colors)))
+    valid_colorings = list(map(
+        tuple, graph.enumerate_graph_colorings(num_colors)
+    ))
     assert tuple(coloring) in valid_colorings
 
 
@@ -36,7 +38,9 @@ def _check_valid_solution(coloring: Tuple, graph: Graph):
     [
         (assignment_solver, num_targets, num_estimates, minimize)
         for assignment_solver in gpa.graph_assignment_solvers.keys()
-        for num_targets, num_estimates in [(3, 2), (10, 2), (5, 3), (5, 5), (3, 15)]
+        for num_targets, num_estimates in [
+            (3, 2), (10, 2), (5, 3), (5, 5), (3, 15)
+        ]
         for minimize in [True, False]
     ]
 )
@@ -70,10 +74,10 @@ def test_permutation_solver_valid(
             'optimal_dynamic_programming'
         ]
         for num_targets, num_estimates in [
-        (3, 2), (10, 2),
-        (5, 3),
-        (5, 5)
-    ]
+            (3, 2), (10, 2),
+            (5, 3),
+            (5, 5)
+        ]
         for minimize in [True, False]
     ]
 )
@@ -87,17 +91,19 @@ def test_permutation_optimal(
      - brute force (the optimized version)
      - branch_and_bound
     """
-    optimal_permutation_solver = gpa.graph_assignment_solvers['optimal_brute_force'](
+    optimal_solver = gpa.graph_assignment_solvers['optimal_brute_force'](
         minimize=minimize, optimize_connected_components=False
     )
-    permutation_solver = gpa.graph_assignment_solvers[assignment_solver](minimize=minimize)
+    assignment_solver = gpa.graph_assignment_solvers[assignment_solver](
+        minimize=minimize
+    )
     for _ in range(trials):
         score_matrix = np.random.randn(num_targets, num_estimates)
         graph = _random_graph(num_targets, (num_estimates + 1) // 2)
-        best_coloring = permutation_solver(score_matrix, graph)
+        best_coloring = assignment_solver(score_matrix, graph)
 
         _check_valid_solution(best_coloring, graph)
-        optimal_coloring = optimal_permutation_solver(score_matrix, graph)
+        optimal_coloring = optimal_solver(score_matrix, graph)
         assert tuple(best_coloring) == tuple(optimal_coloring), (
             list(score_matrix), graph
         )
@@ -105,9 +111,7 @@ def test_permutation_optimal(
 
 # Sometimes this test fails when the randomly generated graph has too small
 # connected components
-def test_runtime(num_targets=15, num_estimates=3):
-    """Test that the branch-and-bound, greedy and dfs are faster than
-    brute-force"""
+def _test_runtime(num_targets=15, num_estimates=3):
     timer = pb.utils.timer.TimerDict()
 
     score_matrix = np.random.randn(num_targets, num_estimates)
@@ -154,3 +158,28 @@ def test_runtime(num_targets=15, num_estimates=3):
     assert times['branch_and_bound'] < times['brute_force']
     assert times['dynamic_programming'] < times['branch_and_bound']
 
+
+def test_runtime(num_targets=15, num_estimates=3, retries=3):
+    """Test that the branch-and-bound, greedy and dfs are faster than
+    brute-force"""
+    for i in range(retries):
+        try:
+            _test_runtime(num_targets, num_estimates)
+        except AssertionError:
+            if i == retries - 1:
+                raise
+        else:
+            break
+
+
+def test_runtime(num_targets=15, num_estimates=3, retries=3):
+    """Test that the branch-and-bound, greedy and dfs are faster than
+    brute-force"""
+    for i in range(retries):
+        try:
+            _test_runtime(num_targets, num_estimates)
+        except AssertionError:
+            if i == retries - 1:
+                raise
+        else:
+            break

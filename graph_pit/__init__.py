@@ -1,1 +1,1 @@
-from .loss import graph_pit_loss, GraphPITLoss
+from .loss import graph_pit_loss, GraphPITLoss  # noqa

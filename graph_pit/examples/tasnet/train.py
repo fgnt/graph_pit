@@ -8,6 +8,8 @@ export OMP_NUM_THREADS=1
 export MKL_NUM_THREADS=1
 python -m padertorch.contrib.examples.source_separation.tasnet.train with database_json=${paths to your JSON}
 """
+# sacred uses things that flake8 doesn't like
+# flake8: noqa
 import os
 
 import numpy as np
@@ -22,14 +24,10 @@ from sacred.utils import InvalidConfigError, MissingConfigError
 from paderbox.io.new_subdir import NameGenerator
 
 import padertorch as pt
-import padertorch.contrib.examples.source_separation.tasnet.model
 
-import graph_pit
 from graph_pit.examples.tasnet.data import cut_segment, single_channel_scenario_map_fn
 from graph_pit.examples.tasnet.model import GraphPITTasNetModel
 from graph_pit.examples.tasnet.modules import DPRNNTasNetSeparator
-from graph_pit.loss import GraphPITLossModule
-from graph_pit.loss.regression import ThresholdedSDRLoss
 
 sacred.SETTINGS.CONFIG.READ_ONLY_CONFIG = False
 experiment_name = "tasnet-graph-pit-debug"
@@ -104,7 +102,10 @@ def pre_batch_transform(inputs):
     assert all(s_.shape[0] > 0 for s_ in s), (s, utterance_boundaries)
     return {
         's': s,
-        'y': np.ascontiguousarray(inputs['audio_data']['observation'], np.float32),
+        'y': np.ascontiguousarray(
+            inputs['audio_data']['observation'],
+            np.float32
+        ),
         'num_samples': num_samples,
         'example_id': inputs['example_id'],
         'utterance_boundaries': utterance_boundaries,
@@ -204,8 +205,8 @@ def dump_config_and_makefile(_config):
     makefile_path = Path(experiment_dir) / "Makefile"
 
     if not makefile_path.exists():
-        from padertorch.contrib.examples.source_separation.tasnet.templates import \
-            MAKEFILE_TEMPLATE_TRAIN
+        from padertorch.contrib.examples.source_separation.tasnet.templates \
+            import MAKEFILE_TEMPLATE_TRAIN
 
         config_path = experiment_dir / "config.json"
         pt.io.dump_config(_config, config_path)

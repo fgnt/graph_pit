@@ -1,18 +1,5 @@
-import itertools
 from distutils.core import setup
 
-extras_require = {
-    'example': [
-        'einops',
-        'sacred @ git+http://github.com/IDSIA/sacred',  # The PyPi version is not frequently updated
-    ],
-    'test': [
-        'pytest'
-    ],
-}
-extras_require['all'] = list(set(itertools.chain.from_iterable(
-    extras_require.values())
-))
 
 setup(
     name='graph_pit',
@@ -28,14 +15,15 @@ setup(
     extras_require={
         'example': [
             'einops',
-            'sacred @ git+http://github.com/IDSIA/sacred',  # The PyPi version is not frequently updated
+            # The PyPi version is not frequently updated
+            'sacred @ git+http://github.com/IDSIA/sacred',
         ],
         'test': [
             'pytest'
         ],
     },
     url='https://github.com/fgnt/graph_pit',
-    license='', # TODO
+    license='',  # TODO
     author='Thilo von Neumann',
     author_email='vonneumann@nt.upb.de',
     description='PyTorch implementation of the Graph-PIT objective for '

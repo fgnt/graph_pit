@@ -29,7 +29,9 @@ class Graph:
     def from_adjacency_matrix(cls, adjacency_matrix) -> 'Graph':
         # For now, convert the adjacency matrix into an edge list
         assert adjacency_matrix.ndim == 2, adjacency_matrix.shape
-        assert adjacency_matrix.shape[0] == adjacency_matrix.shape[1], adjacency_matrix.shape
+        assert adjacency_matrix.shape[0] == adjacency_matrix.shape[1], (
+            adjacency_matrix.shape
+        )
         num_vertices = adjacency_matrix.shape[0]
         edge_list = set()
         for i, x in enumerate(adjacency_matrix):
@@ -144,7 +146,8 @@ class Graph:
         Example:
             For a fully connected graph, this is equivalient to enumerating all
             permutations
-            >>> list(Graph.from_edge_list(3, [(0, 1), (0, 2), (1, 2)]).enumerate_graph_colorings(3))
+            >>> list(Graph.from_edge_list(3, [(0, 1), (0, 2), (1, 2)])
+            ...      .enumerate_graph_colorings(3))
             [[0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0]]
             >>> list(itertools.permutations(range(3)))
             [(0, 1, 2), (0, 2, 1), (1, 0, 2), (1, 2, 0), (2, 0, 1), (2, 1, 0)]
@@ -268,12 +271,14 @@ class EdgeListGraph(Graph):
     """
     Graph defined using an edge-list
     """
-    def __init__(self, num_vertices: int, edge_list: List[Tuple[int, int]], labels=None):
+    def __init__(
+            self, num_vertices: int, edge_list: List[Tuple[int, int]],
+            labels=None
+    ):
         super().__init__(num_vertices, labels)
         self._edge_list = list(edge_list)
-        if not all(0 <= e < num_vertices for e in itertools.chain.from_iterable(
-                edge_list
-        )):
+        if not all(0 <= e < num_vertices
+                   for e in itertools.chain.from_iterable(edge_list)):
             raise ValueError(
                 f'Invalid index in edge list {self._edge_list} for graph with '
                 f'{num_vertices} vertices!'
@@ -296,7 +301,8 @@ class EdgeListGraph(Graph):
         return self._edge_list
 
     def __repr__(self) -> str:
-        return f'{self.__class__.__name__}({self.num_vertices}, {self.edge_list})'
+        return f'{self.__class__.__name__}(' \
+               f'{self.num_vertices}, {self.edge_list})'
 
 
 class AdjacencyListGraph(Graph):

@@ -35,7 +35,7 @@ def test_optimized_graph_pit(
     )
 
     optimized_graph_pit = OptimizedGraphPITSourceAggregatedSDRLoss(
-        estimate, targets, segment_boundaries, permutation_solver=algorithm
+        estimate, targets, segment_boundaries, assignment_solver=algorithm
     )
 
     # Check actual loss value
