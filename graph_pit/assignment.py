@@ -1,7 +1,6 @@
 """
-This file contains algorithms for finding graph-pit assignments similar to
-tvn.algorithm.permutation_solving but with cannot-link constraints described by
-a cannot-link graph.
+This file contains algorithms for finding graph-pit assignments with
+cannot-link constraints described by a cannot-link graph.
 
 References:
     [1] Speeding Up Permutation Invariant Training for Source Separation
@@ -68,7 +67,7 @@ class GraphAssignmentSolver:
         if coloring is None:
             num_targets, num_estimates = score_matrix.shape
             logger.debug(
-                f'Couldn\'t find a solution with the permutation solver '
+                f'Couldn\'t find a solution with the assignment solver '
                 f'{self.__class__.__name__}. This could mean that the '
                 f'cannot_link_graph is not colorable with {num_estimates} '
                 f'colors.'

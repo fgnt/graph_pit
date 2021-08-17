@@ -43,7 +43,7 @@ def test_optimized_graph_pit(
         unoptimized_graph_pit.loss, optimized_graph_pit.loss,
     )
 
-    # Check permutation
+    # Check coloring
     pb.testing.assert_equal(
         unoptimized_graph_pit.best_coloring, optimized_graph_pit.best_coloring
     )

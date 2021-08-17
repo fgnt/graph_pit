@@ -44,12 +44,12 @@ def _check_valid_solution(coloring: Tuple, graph: Graph):
         for minimize in [True, False]
     ]
 )
-def test_permutation_solver_valid(
+def test_assignment_solver_valid(
         assignment_solver,
         num_targets, num_estimates,
         minimize, trials=5,
 ):
-    """Test if all permutation solvers return a valid coloring of the graph"""
+    """Test if all assignment solvers return a valid coloring of the graph"""
     assignment_fn = gpa.graph_assignment_solvers[assignment_solver](
         minimize=minimize
     )
@@ -81,11 +81,11 @@ def test_permutation_solver_valid(
         for minimize in [True, False]
     ]
 )
-def test_permutation_optimal(
+def test_assignment_optimal(
         assignment_solver, num_targets, num_estimates, minimize, trials=10
 ):
     """
-    Test if the different optimal permutation solvers give the same result.
+    Test if the different optimal assignment solvers give the same result.
     These are at the moment:
      - Unoptimized brute force
      - brute force (the optimized version)
