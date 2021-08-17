@@ -136,6 +136,7 @@ class GraphPITLossModule(LossModule):
             estimate: torch.Tensor,
             targets: List[torch.Tensor],
             segment_boundaries: List[Tuple[int, int]],
+            **kwargs,   # unused here
     ) -> GraphPITLoss:
         return GraphPITLoss(
             estimate, targets, segment_boundaries,

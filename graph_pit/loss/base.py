@@ -49,6 +49,7 @@ class LossModule(torch.nn.Module):
             estimate: torch.Tensor,
             targets: List[torch.Tensor],
             segment_boundaries: List[Tuple[int, int]],
+            **kwargs,   # for additional arguments for modified losses
     ) -> GraphPITBase:
         raise NotImplementedError()
 
@@ -57,8 +58,10 @@ class LossModule(torch.nn.Module):
             estimate: torch.Tensor,
             targets: List[torch.Tensor],
             segment_boundaries: List[Tuple[int, int]],
+            **kwargs,   # for additional arguments for modified losses
     ) -> torch.Tensor:
-        return self.get_loss_object(estimate, targets, segment_boundaries).loss
+        return self.get_loss_object(estimate, targets, segment_boundaries,
+                                    **kwargs).loss
 
 
 def get_overlap_graph(segment_boundaries: List[Tuple[int, int]]) -> Graph:
