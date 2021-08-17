@@ -30,7 +30,7 @@ from graph_pit.examples.tasnet.model import GraphPITTasNetModel
 from graph_pit.examples.tasnet.modules import DPRNNTasNetSeparator
 
 sacred.SETTINGS.CONFIG.READ_ONLY_CONFIG = False
-experiment_name = "tasnet-graph-pit-debug"
+experiment_name = "tasnet-graph-pit"
 ex = Experiment(experiment_name)
 
 JSON_BASE = os.environ.get('NT_DATABASE_JSONS_DIR', None)

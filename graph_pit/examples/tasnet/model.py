@@ -30,7 +30,7 @@ class GraphPITTasNetModel(pt.Model):
         """Default config: sa-SDR with DP solver"""
         config['loss'] = {
             'factory': OptimizedGraphPITSourceAggregatedSDRLossModule,
-            'permutation_solver': 'optimal_dynamic_programming',
+            'assignment_solver': 'optimal_dynamic_programming',
         }
 
     def example_to_device(self, example, device=None):

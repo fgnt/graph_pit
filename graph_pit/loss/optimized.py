@@ -72,7 +72,7 @@ class OptimizedGraphPITLoss(GraphPITBase):
 class OptimizedGraphPITSourceAggregatedSDRLoss(OptimizedGraphPITLoss):
     """
     The sa-SDR with "optimized" assignment algorithms from [1]. The assignment
-    solver can be selected by setting `permutation_solver` to one of
+    solver can be selected by setting `assignment_solver` to one of
      - 'optimal_brute_force'
      - 'optimal_branch_and_bound'
      - 'optimal_dynamic_programming'
@@ -142,7 +142,7 @@ def optimized_graph_pit_source_aggregated_sdr_loss(
 
 class OptimizedGraphPITLossModule(LossModule):
     """
-    Base class for loss modules for Graph-PIT losses. Sub-class and set
+    Base class for loss modules for Graph-PIT losses. Sub-class can set
     `loss_class` to get a module for that loss.
     """
     loss_class = None
