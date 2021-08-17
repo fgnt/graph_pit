@@ -1,6 +1,7 @@
 import itertools
 from dataclasses import dataclass
 from typing import List, Tuple
+import numpy as np
 
 
 @dataclass
@@ -43,3 +44,101 @@ def get_overlaps_from_segment_boundaries(
             overlaps.add(tuple(sorted((r1.index, r2.index))))
 
     return list(overlaps)
+
+
+def to_numpy(array, detach: bool = False, copy: bool = False) -> np.ndarray:
+    """
+    Transforms `array` to a numpy array. `array` can be anything that
+    `np.asarray` can handle and torch tensors.
+
+    Copied from padertorch to minimize depenencies
+
+    Args:
+        array: The array to transform to numpy
+        detach: If `True`, `array` gets detached if it is a `torch.Tensor`.
+            This has to be enabled explicitly to prevent unintentional
+            truncation of a backward graph.
+        copy: If `True`, the array gets copied. Otherwise, it becomes read-only
+            to prevent unintened changes on the input array or tensor by
+            altering the output.
+
+    Returns:
+        `array` as a numpy array.
+
+    >>> t = torch.zeros(2)
+    >>> t
+    tensor([0., 0.])
+    >>> to_numpy(t), np.zeros(2, dtype=np.float32)
+    (array([0., 0.], dtype=float32), array([0., 0.], dtype=float32))
+
+    >>> t = torch.zeros(2, requires_grad=True)
+    >>> t
+    tensor([0., 0.], requires_grad=True)
+    >>> to_numpy(t, detach=True), np.zeros(2, dtype=np.float32)
+    (array([0., 0.], dtype=float32), array([0., 0.], dtype=float32))
+
+    """
+    # if isinstance(array, torch.Tensor):
+    try:
+        array = array.cpu()
+    except AttributeError:
+        pass
+    else:
+        if detach:
+            array = array.detach()
+
+    try:
+        # torch only supports np.asarray for cpu tensors
+        if copy:
+            return np.array(array)
+        else:
+            array = np.asarray(array)
+            array.setflags(write=False)
+            return array
+    except TypeError as e:
+        raise TypeError(type(array), array) from e
+    except RuntimeError as e:
+        import sys
+        raise type(e)(str(e) + (
+            '\n\n'
+            'It is likely, that you are evaluating a model in train mode.\n'
+            'You may want to call `model.eval()` first and use a context\n'
+            'manager, which disables gradients: `with torch.no_grad(): ...`.\n'
+            'If you want to detach anyway, use `detach=True` as argument.'
+            )
+        ) from e
+
+
+class DispatchError(KeyError):
+    def __str__(self):
+        if len(self.args) == 2 and isinstance(self.args[0], str):
+            item, keys = self.args
+            import difflib
+            # Suggestions are sorted by their similarity.
+            suggestions = difflib.get_close_matches(
+                item, keys, cutoff=0, n=100
+            )
+            return f'Invalid option {item!r}.\n' \
+                   f'Close matches: {suggestions!r}.'
+        else:
+            return super().__str__()
+
+
+class Dispatcher(dict):
+    """
+    Is basically a dict with a better error message on key error.
+    >>> d = Dispatcher(abc=1, bcd=2)
+    >>> d['acd']  #doctest: +ELLIPSIS
+    Traceback (most recent call last):
+    ...
+    paderbox.utils.mapping.DispatchError: Invalid option 'acd'.
+    Close matches: ['bcd', 'abc'].
+
+    Copied from paderbox to minimize depenencies.
+    """
+
+    def __getitem__(self, item):
+        try:
+            return super().__getitem__(item)
+        except KeyError as e:
+            raise DispatchError(item, self.keys()) from None

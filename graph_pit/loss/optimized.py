@@ -4,8 +4,6 @@ from typing import Union, Callable, List, Tuple
 import torch
 import numpy as np
 
-import padertorch as pt
-
 from graph_pit.loss.base import GraphPITBase, LossModule
 from graph_pit.assignment import graph_assignment_solvers
 
@@ -14,6 +12,8 @@ __all__ = [
     'OptimizedGraphPITSourceAggregatedSDRLossModule',
     'optimized_graph_pit_source_aggregated_sdr_loss',
 ]
+
+from graph_pit.utils import to_numpy
 
 
 @dataclass
@@ -50,7 +50,7 @@ class OptimizedGraphPITLoss(GraphPITBase):
     def best_coloring(self) -> tuple:
         similarity_matrix = self.similarity_matrix
         x = self.assignment_solver(
-            pt.utils.to_numpy(similarity_matrix, detach=True), self.graph
+            to_numpy(similarity_matrix, detach=True), self.graph
         )
         assert x is not None
         return tuple(x)

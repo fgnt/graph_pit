@@ -10,10 +10,11 @@ from dataclasses import dataclass
 
 import numpy as np
 
-import paderbox as pb
 from .graph import Graph
 
 import logging
+
+from .utils import Dispatcher
 
 logger = logging.getLogger('graph-assignment-solver')
 
@@ -417,7 +418,7 @@ class OptimalDynamicProgrammingAssignmentSolver(GraphAssignmentSolver):
 
 
 # Dispatchers for permutation solving using a cannot-link graph
-graph_assignment_solvers = pb.utils.mapping.Dispatcher({
+graph_assignment_solvers = Dispatcher({
     'optimal_brute_force': OptimalBruteForceGraphAssignmentSolver,
     'optimal_branch_and_bound': OptimalBranchAndBoundGraphAssignmentSolver,
     'optimal_dynamic_programming': OptimalDynamicProgrammingAssignmentSolver,

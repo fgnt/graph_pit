@@ -1,6 +1,4 @@
 import torch
-from padertorch.ops.losses.regression import _reduce
-import paderbox as pb
 
 
 __all__ = [
@@ -11,7 +9,18 @@ __all__ = [
 ]
 
 
-@pb.utils.functional.partial_decorator
+def _reduce(array, reduction):
+    if reduction is None or reduction == 'none':
+        return array
+    if reduction == 'sum':
+        return torch.sum(array)
+    elif reduction == 'mean':
+        return torch.mean(array)
+    else:
+        raise ValueError(
+            f'Unknown reduction: {reduction}. Choose from "sum", "mean".')
+
+
 def sdr_loss(estimate: torch.Tensor, target: torch.Tensor,
              reduction: str = 'mean', aggregation: str = 'none'):
     """

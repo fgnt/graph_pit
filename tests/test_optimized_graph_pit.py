@@ -1,9 +1,11 @@
+import functools
+
 from graph_pit.loss.optimized import OptimizedGraphPITSourceAggregatedSDRLoss
 from graph_pit.loss.regression import sdr_loss
 from graph_pit.loss.unoptimized import GraphPITLoss
 import torch
 import pytest
-import paderbox as pb
+import numpy as np
 
 
 @pytest.mark.parametrize(
@@ -29,9 +31,8 @@ def test_optimized_graph_pit(
     # The optimized version uses in fraction loss aggregation, so we have to
     # test against that
     unoptimized_graph_pit = GraphPITLoss(
-        estimate, targets, segment_boundaries, loss_fn=sdr_loss(
-            aggregation='in_fraction', reduction='sum'
-        )
+        estimate, targets, segment_boundaries, loss_fn=functools.partial(
+            sdr_loss, aggregation='in_fraction', reduction='sum')
     )
 
     optimized_graph_pit = OptimizedGraphPITSourceAggregatedSDRLoss(
@@ -39,11 +40,11 @@ def test_optimized_graph_pit(
     )
 
     # Check actual loss value
-    pb.testing.assert_allclose(
+    np.testing.assert_allclose(
         unoptimized_graph_pit.loss, optimized_graph_pit.loss,
     )
 
     # Check coloring
-    pb.testing.assert_equal(
+    np.testing.assert_equal(
         unoptimized_graph_pit.best_coloring, optimized_graph_pit.best_coloring
     )

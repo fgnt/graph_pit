@@ -8,7 +8,7 @@ INTERSPEECH 2021 and the optimized variant from the paper ["Speeding up permutat
 
 ## Installation
 
-Make sure to have PyTorch installed. You can install this package from GitHub:
+You can install this package from GitHub:
 
 ```shell
 pip install git+https://github.com/fgnt/graph_pit.git
@@ -18,16 +18,19 @@ Or in editable mode if you want to make modifications:
 
 ```shell
 git clone https://github.com/fgnt/graph_pit.git
-pip install -e graph_pit
+cd graph_pit
+pip install -e .
 ```
 
 This will install the basic dependencies of the package. 
 If you want to run the example or the tests, install their requirements with
 
 ```shell
-pip install -e 'graph_pit[example]' # Installs example requirements
-pip install -e 'graph_pit[test]'    # Installs test requirements
-pip install -e 'graph_pit[all]'     # Installs all requirements
+git clone https://github.com/fgnt/graph_pit.git
+cd graph_pit
+pip install -e '.[example]' # Installs example requirements
+pip install -e '.[test]'    # Installs test requirements
+pip install -e '.[all]'     # Installs all requirements
 ```
 ## Usage
 

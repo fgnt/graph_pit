@@ -9,23 +9,25 @@ setup(
         'numpy',
         'torch',
         'cached_property',
-        'paderbox @ git+http://github.com/fgnt/paderbox',
-        'padertorch @ git+http://github.com/fgnt/padertorch',
     ],
     extras_require={
         'example': [
             'einops',
+            'lazy_dataset',
             # The PyPi version is not frequently updated
             'sacred @ git+http://github.com/IDSIA/sacred',
+            'padertorch @ git+http://github.com/fgnt/padertorch',
+            'paderbox @ git+http://github.com/fgnt/paderbox',
         ],
         'test': [
-            'pytest'
+            'pytest',
+            'paderbox @ git+http://github.com/fgnt/paderbox',
         ],
     },
     url='https://github.com/fgnt/graph_pit',
     license='',  # TODO
     author='Thilo von Neumann',
-    author_email='vonneumann@nt.upb.de',
+    author_email='',
     description='PyTorch implementation of the Graph-PIT objective for '
                 'training networks for continuous source separation',
 )
