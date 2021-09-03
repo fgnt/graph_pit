@@ -1,0 +1,31 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "von Neumann"
+  given-names: "Thilo"
+  orcid: "https://orcid.org/0000-0002-7717-8670"
+title: "Graph-PIT"
+version: 1.0.0
+date-released: 2021-09-03
+url: "https://github.com/fgnt/graph_pit"
+preferred-citation:
+  type: proceedings
+  authors:
+  - family-names: "von Neumann"
+    given-names: "Thilo"
+    orcid: "https://orcid.org/0000-0002-7717-8670"
+  - family-names: "Kinoshita"
+    given-names: "Keisuke"
+  - family-names: "Boeddeker"
+    given-names: "Christoph"
+  - family-names: "Delcroix"
+    given-names: "Marc"
+  - family-names: "Haeb-Umbach"
+    given-names: "Reinhold"
+  doi: "10.21437/Interspeech.2021-1177"
+  conference:
+    name: "Interspeech 2021"
+  start: 3490 # First page number
+  end: 3494 # Last page number
+  title: "Graph-PIT: Generalized Permutation Invariant Training for Continuous Separation of Arbitrary Numbers of Speakers"
+  year: 2021
