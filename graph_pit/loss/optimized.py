@@ -126,7 +126,7 @@ class OptimizedGraphPITSourceAggregatedSDRLoss(OptimizedGraphPITLoss):
 
 
 def optimized_graph_pit_source_aggregated_sdr_loss(
-        estimate: torch.Tensor, targets: torch.Tensor,
+        estimate: torch.Tensor, targets: List[torch.Tensor],
         segment_boundaries: List[Tuple[int, int]],
         assignment_solver: Union[Callable, str] =
         OptimizedGraphPITSourceAggregatedSDRLoss.assignment_solver
