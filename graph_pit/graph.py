@@ -2,6 +2,8 @@ import itertools
 from cached_property import cached_property
 from typing import List, Tuple, Optional, Any, Set
 
+from graph_pit.utils import get_overlaps_from_segment_boundaries
+
 
 class Graph:
     def __init__(self, num_vertices: int, labels: Optional[List[Any]] = None):
@@ -324,3 +326,14 @@ class AdjacencyListGraph(Graph):
             for x, l in enumerate(self.adjacency_list)
             for y in l
         ))
+
+
+def get_overlap_graph(segment_boundaries: List[Tuple[int, int]]) -> Graph:
+    edges = get_overlaps_from_segment_boundaries(segment_boundaries)
+    graph = EdgeListGraph(len(segment_boundaries), edges)
+
+    # If this fails, something is wrong in the graph construction
+    assert graph.num_vertices == len(segment_boundaries), (
+        graph, segment_boundaries
+    )
+    return graph
