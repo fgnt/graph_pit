@@ -425,3 +425,10 @@ graph_assignment_solvers = Dispatcher({
     'dfs': DFSGraphAssignmentSolver,
     'greedy_cop': GreedyCOPGraphAssignmentSolver,
 })
+
+
+def solve_assignment(
+        score_matrix, cannot_link_graph, minimize=False,
+        algorithm='optimal_dynamic_programming'
+):
+    return graph_assignment_solvers[algorithm](minimize)(score_matrix, cannot_link_graph)
