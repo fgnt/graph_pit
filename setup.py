@@ -1,4 +1,4 @@
-from distutils.core import setup
+from setuptools import setup, find_packages
 import itertools
 
 extras = {
@@ -20,7 +20,7 @@ extras['all'] = list(set(itertools.chain.from_iterable(extras.values())))
 setup(
     name='graph_pit',
     version='0.1',
-    packages=['graph_pit'],
+    packages=find_packages(include=['graph_pit', 'graph_pit.*']),
     install_requires=[
         'numpy',
         'torch',
