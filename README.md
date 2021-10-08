@@ -6,7 +6,7 @@ This repository contains a PyTorch implementation of the Graph-PIT objective pro
 Generalized permutation invariant training for continuous separation of arbitrary numbers of speakers"](https://arxiv.org/abs/2107.14446), submitted to
 INTERSPEECH 2021 and the optimized variant from the paper ["Speeding up permutation invariant training for source separation"](https://arxiv.org/abs/2107.14445), submitted to the 14th ITG conference on Speech Communication 2021.
 
-The optimized uPIT code used in [2] can be found in [padertorch](https://github.com/fgnt/padertorch).
+The optimized uPIT code used in [2] can be found in [padertorch](https://github.com/fgnt/padertorch) and the example noteook [`runtimes.ipynb`](graph_pit/examples/runtimes.ipynb).
 
 ## Installation
 
