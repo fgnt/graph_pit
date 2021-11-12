@@ -181,7 +181,7 @@ def target_sum_from_target_list(
                 f'target shape: {targets[target_index].shape} '
                 f'segment_boundaries: {start, stop}'
             )
-        if start < 0 or stop > target_sum.shape[-1]:
+        if start < 0 or stop > target_sum.shape[1]:
             raise ValueError(
                 f'Length mismatch between estimation and targets / '
                 f'segment_boundaries at {idx}: '
