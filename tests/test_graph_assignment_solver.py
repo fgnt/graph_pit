@@ -154,9 +154,11 @@ def _test_runtime(num_targets=15, num_estimates=3):
     assert times['dfs'] < times['brute_force']
     assert times['greedy'] < times['brute_force']
     assert times['dynamic_programming'] < times['brute_force']
-    # These can fail occasionally because B&B's runtime is not deterministic
-    assert times['branch_and_bound'] < times['brute_force']
-    assert times['dynamic_programming'] < times['branch_and_bound']
+    # These can fail occasionally because B&B's runtime is not deterministic.
+    # Thus, add a small factor to make sure that things are at least not
+    # completely broken.
+    assert times['branch_and_bound'] < times['brute_force'] * 2
+    assert times['dynamic_programming'] < times['branch_and_bound'] * 2
 
 
 def test_runtime(num_targets=15, num_estimates=3, retries=3):
