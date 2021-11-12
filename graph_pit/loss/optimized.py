@@ -27,7 +27,7 @@ class OptimizedGraphPITLoss(GraphPITBase):
     References:
         [1] Speeding up Permutation Invariant Training
     """
-    assignment_solver: Union[Callable, str] = 'optimal_brute_force'
+    assignment_solver: Union[Callable, str] = 'optimal_dynamic_programming'
 
     def __post_init__(self):
         super().__post_init__()
@@ -87,6 +87,13 @@ class OptimizedGraphPITSourceAggregatedSDRLoss(OptimizedGraphPITLoss):
     References:
         [1] Speeding up Permutation Invariant Training
     """
+    sdr_max: float = None
+
+    @cached_property
+    def _threshold(self):
+        if self.sdr_max is None:
+            return None
+        return 10 ** (-self.sdr_max / 10)
 
     @cached_property
     def similarity_matrix(self) -> torch.Tensor:
@@ -119,10 +126,11 @@ class OptimizedGraphPITSourceAggregatedSDRLoss(OptimizedGraphPITLoss):
         )
         estimate_energy = torch.sum(self.estimate ** 2)
 
-        # Compute the final SDR as
-        # (|s|^2)/(|s|^2 + |shat|^2 + sum(matmul(s, shat)))
-        sdr = target_energy / (target_energy + estimate_energy - 2 * x)
-        return -10 * torch.log10(sdr)
+        # Compute the final SDR
+        sdr = (estimate_energy - 2 * x) / target_energy + 1
+        if self.sdr_max is not None:
+            sdr = sdr + self._threshold
+        return 10 * torch.log10(sdr)
 
 
 def optimized_graph_pit_source_aggregated_sdr_loss(
@@ -181,3 +189,22 @@ class OptimizedGraphPITSourceAggregatedSDRLossModule(
     torch module.
     """
     loss_class = OptimizedGraphPITSourceAggregatedSDRLoss
+
+    def __init__(
+            self,
+            assignment_solver: Union[Callable, str] = OptimizedGraphPITSourceAggregatedSDRLoss.assignment_solver,
+            sdr_max: float = None
+    ):
+        super().__init__(assignment_solver)
+        self.sdr_max = sdr_max
+
+    def get_loss_object(
+            self, estimate: torch.Tensor, targets: torch.Tensor,
+            segment_boundaries: List[Tuple[int, int]],
+            **kwargs,
+    ) -> loss_class:
+        return self.loss_class(
+            estimate, targets, segment_boundaries,
+            assignment_solver=self.assignment_solver,
+            sdr_max=self.sdr_max,
+        )
