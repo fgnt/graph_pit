@@ -1,6 +1,6 @@
 import functools
 
-from graph_pit.loss.optimized import OptimizedGraphPITSourceAggregatedSDRLoss
+from graph_pit.loss.optimized import OptimizedGraphPITSourceAggregatedSDRLoss, OptimizedGraphPITMSELoss
 from graph_pit.loss.regression import sdr_loss
 from graph_pit.loss.unoptimized import GraphPITLoss
 import torch
@@ -9,17 +9,22 @@ import numpy as np
 
 
 @pytest.mark.parametrize(
-    'seed,num_samples,num_estimates,segment_boundaries,algorithm',
-    [(seed, num_samples, num_estimates, segment_boundaries, algorithm)
+    'seed,num_samples,num_estimates,segment_boundaries,algorithm,unoptimized_loss_fn,optimized_loss_class',
+    [(seed, num_samples, num_estimates, segment_boundaries, algorithm, unoptimized_loss_fn, optimized_loss_class)
      for seed, num_samples, num_estimates, segment_boundaries in [
-        (0, 500, 2, [(0, 100), (150, 350), (300, 450)]),
-        (0, 8000 * 16, 2, [(0, 8000), (4000, 12000), (8000, 16000)]),
-        (0, 8000 * 16, 3, [(0, 8000), (4000, 12000), (8000, 16000)]),
-        (0, 8000 * 16, 4, [(0, 8000), (4000, 12000), (4000, 16000)]),
-    ] for algorithm in ['optimal_brute_force', 'optimal_branch_and_bound']],
+         (0, 500, 2, [(0, 100), (150, 350), (300, 450)]),
+         (0, 8000 * 16, 2, [(0, 8000), (4000, 12000), (8000, 16000)]),
+         (0, 8000 * 16, 3, [(0, 8000), (4000, 12000), (8000, 16000)]),
+         (0, 8000 * 16, 4, [(0, 8000), (4000, 12000), (4000, 16000)]),
+     ] for algorithm in ['optimal_brute_force', 'optimal_branch_and_bound']
+     for unoptimized_loss_fn, optimized_loss_class in [
+         (functools.partial(sdr_loss, aggregation='in_fraction', reduction='sum'), OptimizedGraphPITSourceAggregatedSDRLoss),
+         (torch.nn.functional.mse_loss, OptimizedGraphPITMSELoss),
+     ]],
 )
 def test_optimized_graph_pit(
-        seed, num_samples, num_estimates, segment_boundaries, algorithm
+        seed, num_samples, num_estimates, segment_boundaries, algorithm,
+        unoptimized_loss_fn, optimized_loss_class
 ):
     torch.manual_seed(seed)
     targets = [
@@ -31,11 +36,10 @@ def test_optimized_graph_pit(
     # The optimized version uses in fraction loss aggregation, so we have to
     # test against that
     unoptimized_graph_pit = GraphPITLoss(
-        estimate, targets, segment_boundaries, loss_fn=functools.partial(
-            sdr_loss, aggregation='in_fraction', reduction='sum')
+        estimate, targets, segment_boundaries, loss_fn=unoptimized_loss_fn
     )
 
-    optimized_graph_pit = OptimizedGraphPITSourceAggregatedSDRLoss(
+    optimized_graph_pit = optimized_loss_class(
         estimate, targets, segment_boundaries, assignment_solver=algorithm
     )
 

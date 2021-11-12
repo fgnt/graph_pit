@@ -218,7 +218,7 @@ class OptimizedGraphPITMSELoss(OptimizedGraphPITLoss):
                 self.targets, self.segment_boundaries
         )):
             v.append(torch.sum(
-                self.estimate[:, start:stop, ...] * target[..., None, :, :],
+                self.estimate[:, start:stop, ...] * target[None, ...],
                 dim=tuple(range(1, len(self.estimate.shape)))
             ))
         similarity_matrix = torch.stack(v)
