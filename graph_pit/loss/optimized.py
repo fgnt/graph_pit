@@ -208,3 +208,44 @@ class OptimizedGraphPITSourceAggregatedSDRLossModule(
             assignment_solver=self.assignment_solver,
             sdr_max=self.sdr_max,
         )
+
+
+class OptimizedGraphPITMSELoss(OptimizedGraphPITLoss):
+    @cached_property
+    def similarity_matrix(self):
+        v = []
+        for idx, (target, (start, stop)) in enumerate(zip(
+                self.targets, self.segment_boundaries
+        )):
+            v.append(torch.sum(
+                self.estimate[:, start:stop, ...] * target[..., None, :, :],
+                dim=tuple(range(1, len(self.estimate.shape)))
+            ))
+        similarity_matrix = torch.stack(v)
+        return similarity_matrix
+
+    def compute_f(self, x):
+        target_energy = torch.sum(
+            torch.stack([torch.sum(t ** 2) for t in self.targets])
+        )
+        estimate_energy = torch.sum(self.estimate ** 2)
+        return (target_energy + estimate_energy - 2 * x) / np.prod(self.estimate.shape)
+
+
+class OptimizedGraphPITMSELossModule(OptimizedGraphPITLoss):
+    loss_class = OptimizedGraphPITMSELoss
+
+
+def optimized_graph_pit_mse_loss(
+        estimate: torch.Tensor, targets: List[torch.Tensor],
+        segment_boundaries: List[Tuple[int, int]],
+        assignment_solver: Union[Callable, str] =
+        OptimizedGraphPITSourceAggregatedSDRLoss.assignment_solver
+) -> torch.Tensor:
+    """
+    Function form of the sa-SDR Graph-PIT loss.
+    """
+    return OptimizedGraphPITMSELoss(
+        estimate, targets, segment_boundaries,
+        assignment_solver=assignment_solver
+    ).loss
