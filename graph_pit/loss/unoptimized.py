@@ -104,9 +104,9 @@ def graph_pit_loss(
     the loss.
 
     Args:
-        estimate (n_out time): Estimations, one for each output channel of the
+        estimate (n_out time [...]): Estimations, one for each output channel of the
             separator.
-        targets (n_target time): List of targets, one for each utterance. The
+        targets (n_target time [...]): List of targets, one for each utterance. The
             targets are not zero-padded. The length of the target must match
             `end - start` of the corresponding segment boundary.
         segment_boundaries (n_target): Start and stop times of targets relative
@@ -155,8 +155,8 @@ def target_sum_from_target_list(
     of utterances to output channels (`permutation`)
 
     Args:
-        estimate (n_out time): Only used to ensure the correct shape and type.
-        targets: The target signals, one for each utterance.
+        estimate (n_out time [...]): Only used to ensure the correct shape and type.
+        targets (n_targets time [...]): The target signals, one for each utterance.
         segment_boundaries: Segment boundaries
         permutation:
 
@@ -181,7 +181,7 @@ def target_sum_from_target_list(
                 f'target shape: {targets[target_index].shape} '
                 f'segment_boundaries: {start, stop}'
             )
-        if start < 0 or stop > target_sum.shape[-1]:
+        if start < 0 or stop > target_sum.shape[1]:
             raise ValueError(
                 f'Length mismatch between estimation and targets / '
                 f'segment_boundaries at {idx}: '
