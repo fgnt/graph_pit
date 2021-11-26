@@ -19,6 +19,11 @@ from .utils import Dispatcher
 logger = logging.getLogger('graph-assignment-solver')
 
 
+# Idea similar to NotImplemented: Is returned when no solution could be found
+# so that another algorithm can be used
+NO_SOLUTION = object()
+
+
 def _find_mapping_apply_connected_components(
         assignment_solver, score_matrix, cannot_link_graph, **kwargs
 ):
@@ -34,8 +39,8 @@ def _find_mapping_apply_connected_components(
         partial_solution = assignment_solver(
             cc_sm, connected_component, **kwargs
         )
-        if partial_solution is None:
-            return None
+        if partial_solution is NO_SOLUTION:
+            return NO_SOLUTION
         mapping[connected_component.labels] = partial_solution
 
     return mapping
@@ -65,7 +70,7 @@ class GraphAssignmentSolver:
         else:
             coloring = self.find_assignment(score_matrix, cannot_link_graph)
 
-        if coloring is None:
+        if coloring is NO_SOLUTION:
             num_targets, num_estimates = score_matrix.shape
             logger.debug(
                 f'Couldn\'t find a solution with the assignment solver '
@@ -121,7 +126,7 @@ class OptimalBruteForceGraphAssignmentSolver(GraphAssignmentSolver):
         )
 
         if not colorings:
-            return None
+            return NO_SOLUTION
 
         # This is the old loop-based implementation. I'd like to keep it here
         # in case the indexing-based variant becomes too memory demanding
@@ -219,7 +224,7 @@ class GreedyCOPGraphAssignmentSolver(GraphAssignmentSolver):
             coloring[i] = j
 
         if np.any(coloring == -1):
-            return None
+            return NO_SOLUTION
 
         return coloring
 
@@ -230,7 +235,7 @@ class DFSGraphAssignmentSolver(GraphAssignmentSolver):
     A depth-first search algorithm for greedy permutation solving.
 
     This greedy permutation solving algorithm always finds a solution
-    if there is one (compared to the greedy COP variant), but in the
+    if there is one (compared to the greedy  COP variant), but in the
     worst case tries every possible combination. This algorithm is not
     guaranteed to find the optimal solution.
 
@@ -293,6 +298,7 @@ class DFSGraphAssignmentSolver(GraphAssignmentSolver):
                 depth = depth + 1
                 if depth == N:
                     return coloring
+        return NO_SOLUTION
 
 
 class OptimalBranchAndBoundGraphAssignmentSolver(GraphAssignmentSolver):
@@ -326,7 +332,7 @@ class OptimalBranchAndBoundGraphAssignmentSolver(GraphAssignmentSolver):
             nonlocal best_cost
             current_vertex_costs = cost_matrix[0]
 
-            best_perm = None
+            best_perm = NO_SOLUTION
             for idx in np.argsort(current_vertex_costs):
                 current_cost = current_vertex_costs[idx] + cost
 
@@ -349,7 +355,7 @@ class OptimalBranchAndBoundGraphAssignmentSolver(GraphAssignmentSolver):
                     _cost_matrix, current_cost, depth + 1
                 )
 
-                if perm is not None:
+                if perm is not NO_SOLUTION:
                     best_perm = (idx,) + perm
             return best_perm
 
@@ -414,7 +420,12 @@ class OptimalDynamicProgrammingAssignmentSolver(GraphAssignmentSolver):
                             continue
 
                     candidates[new_state] = (new_coloring, new_score)
-        return min(candidates.items(), key=lambda x: x[1][1])[1][0]
+        try:
+            return min(candidates.items(), key=lambda x: x[1][1])[1][0]
+        except ValueError:
+            # ValueError: min() arg is an empty sequence
+            # This means there is no solution
+            return NO_SOLUTION
 
 
 # Dispatchers for permutation solving using a cannot-link graph

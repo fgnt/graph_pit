@@ -59,8 +59,8 @@ def test_assignment_solver_valid(
         best_coloring = assignment_fn(score_matrix, graph)
         if assignment_solver == 'greedy_cop':
             # This greedy variant does not always find a solution, so it should
-            # pass the test if the output is None
-            if best_coloring is None:
+            # pass the test if the output is NO_SOLUTION
+            if best_coloring is gpa.NO_SOLUTION:
                 continue
         _check_valid_solution(best_coloring, graph)
 

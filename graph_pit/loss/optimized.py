@@ -14,6 +14,7 @@ __all__ = [
 ]
 
 from graph_pit.utils import to_numpy
+import graph_pit
 
 
 @dataclass
@@ -29,14 +30,6 @@ class OptimizedGraphPITLoss(GraphPITBase):
     """
     assignment_solver: Union[Callable, str] = 'optimal_dynamic_programming'
 
-    def __post_init__(self):
-        super().__post_init__()
-
-        if not callable(self.assignment_solver):
-            self.assignment_solver = (
-                graph_assignment_solvers[self.assignment_solver]
-            )(minimize=False)
-
     @cached_property
     def similarity_matrix(self) -> torch.Tensor:
         """ The matrix "M" from the paper. """
@@ -49,10 +42,18 @@ class OptimizedGraphPITLoss(GraphPITBase):
     @cached_property
     def best_coloring(self) -> tuple:
         similarity_matrix = self.similarity_matrix
-        x = self.assignment_solver(
-            to_numpy(similarity_matrix, detach=True), self.graph
+        x = graph_pit.assignment.solve_assignment(
+            to_numpy(similarity_matrix, detach=True), self.graph,
+            minimize=False, algorithm=self.assignment_solver
         )
-        assert x is not None
+        if x is graph_pit.assignment.NO_SOLUTION:
+            raise RuntimeError(
+                f'No solution found for graph {self.graph} with '
+                f'"{self.assignment_solver}" assignment solver and '
+                f'{similarity_matrix.shape[-1]} many colors". List of proper '
+                f'colorings: '
+                f'{list(self.graph.enumerate_graph_colorings(similarity_matrix.shape[-1]))}'
+            )
         return tuple(x)
 
     @cached_property
