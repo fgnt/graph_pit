@@ -20,7 +20,7 @@ def test_graph_pit():
     # Compute loss
     loss = graph_pit_loss(
         estimate, targets, segment_boundaries,
-        torch.nn.functional.mse_loss
+        loss_fn=torch.nn.functional.mse_loss
     )
     np.testing.assert_allclose(float(loss), 0.26560837)
 
@@ -32,7 +32,7 @@ def test_graph_pit():
     estimate[0, 300:450] = 1
     loss = graph_pit_loss(
         estimate, targets, segment_boundaries,
-        torch.nn.functional.mse_loss
+        loss_fn=torch.nn.functional.mse_loss
     )
     np.testing.assert_allclose(float(loss), 0)
 
@@ -43,7 +43,7 @@ def test_graph_pit_exceptions():
     ):
         graph_pit_loss(
             torch.zeros(2, 100), torch.zeros(3, 100),
-            [(0, 100), (0, 100), (0, 100)], torch.nn.functional.mse_loss
+            [(0, 100), (0, 100), (0, 100)], loss_fn=torch.nn.functional.mse_loss
         )
 
     with pytest.raises(
@@ -52,14 +52,14 @@ def test_graph_pit_exceptions():
                   'segment boundaries!'
     ):
         graph_pit_loss(torch.zeros(2, 100), torch.zeros(3, 100),
-                       [(0, 100), (0, 100)], torch.nn.functional.mse_loss)
+                       [(0, 100), (0, 100)], loss_fn=torch.nn.functional.mse_loss)
 
     with pytest.raises(
             ValueError,
             match='Length mismatch between target and segment_boundaries'
     ):
         graph_pit_loss(torch.zeros(3, 100), torch.zeros(2, 100),
-                       [(0, 50), (0, 100)], torch.nn.functional.mse_loss)
+                       [(0, 50), (0, 100)], loss_fn=torch.nn.functional.mse_loss)
 
 
 if __name__ == '__main__':
