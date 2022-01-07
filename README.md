@@ -152,3 +152,15 @@ If you use this code, please cite the papers:
 ```
 
 - [2] The speed optimizations: "Speeding up permutation invariant training for source separation": https://arxiv.org/abs/2107.14445
+```bibtex
+@inproceedings{vonneumann21_SpeedingUp,
+  author={Thilo von Neumann and Christoph Boeddeker and Keisuke Kinoshita and Marc Delcroix and Reinhold Haeb-Umbach},
+  booktitle={Speech Communication; 14th ITG Conference}, 
+  title={Speeding Up Permutation Invariant Training for Source Separation}, 
+  year={2021},
+  volume={},
+  number={},
+  pages={1-5},
+  doi={}
+}
+```
