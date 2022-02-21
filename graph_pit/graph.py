@@ -329,6 +329,11 @@ class AdjacencyListGraph(Graph):
 
 
 def get_overlap_graph(segment_boundaries: List[Tuple[int, int]]) -> Graph:
+    start_points = [s[0] for s in segment_boundaries]
+    if start_points != sorted(start_points):
+        raise ValueError(f'segment_boundaries are not sorted. They have to be '
+                         f'sorted by their start times for some assignment '
+                         f'algorithms! {segment_boundaries}')
     edges = get_overlaps_from_segment_boundaries(segment_boundaries)
     graph = EdgeListGraph(len(segment_boundaries), edges)
 
