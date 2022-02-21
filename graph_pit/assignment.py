@@ -19,9 +19,47 @@ from .utils import Dispatcher
 logger = logging.getLogger('graph-assignment-solver')
 
 
-# Idea similar to NotImplemented: Is returned when no solution could be found
-# so that another algorithm can be used
-NO_SOLUTION = object()
+class NoSolutionError(RuntimeError):
+    def __init__(
+            self,
+            arg='No valid coloring could be found. This could be because '
+                'the graph is not colorable with the requested amount of '
+                'colors.',
+            *args: object,
+            cannot_link_graph: Graph = None,
+            assignment_solver: 'GraphAssignmentSolver' = None,
+            num_colors: int = None
+    ) -> None:
+        super().__init__(arg, *args)
+        self.cannot_link_graph = cannot_link_graph
+        self.assignment_solver = assignment_solver
+        self.num_colors = num_colors
+
+    def __str__(self):
+        if self.cannot_link_graph is not None and self.num_colors is not None:
+            colorable = self.cannot_link_graph.has_coloring(self.num_colors)
+        else:
+            colorable = "unknown"
+        if self.cannot_link_graph:
+            # EdgeListGraph representation is easiest to interpret
+            graph = Graph.from_edge_list(
+                self.cannot_link_graph.num_vertices,
+                self.cannot_link_graph.edge_list
+            )
+        else:
+            graph = "unknown"
+        if self.num_colors is None:
+            num_colors = "unknown"
+        else:
+            num_colors = self.num_colors
+
+        return (
+                ' '.join(self.args) + '\nDetails:\n' +
+                f'  Assignment Algorithm: {self.assignment_solver or "unknown"})\n'
+                f'  Graph: {graph}\n'
+                f'  Number of colors: {num_colors}\n'
+                f'  Colorable: {colorable}'
+        )
 
 
 def _find_mapping_apply_connected_components(
@@ -39,8 +77,6 @@ def _find_mapping_apply_connected_components(
         partial_solution = assignment_solver(
             cc_sm, connected_component, **kwargs
         )
-        if partial_solution is NO_SOLUTION:
-            return NO_SOLUTION
         mapping[connected_component.labels] = partial_solution
 
     return mapping
@@ -70,14 +106,6 @@ class GraphAssignmentSolver:
         else:
             coloring = self.find_assignment(score_matrix, cannot_link_graph)
 
-        if coloring is NO_SOLUTION:
-            num_targets, num_estimates = score_matrix.shape
-            logger.debug(
-                f'Couldn\'t find a solution with the assignment solver '
-                f'{self.__class__.__name__}. This could mean that the '
-                f'cannot_link_graph is not colorable with {num_estimates} '
-                f'colors.'
-            )
         return coloring
 
     def _check_inputs(self, score_matrix, cannot_link_graph):
@@ -126,7 +154,11 @@ class OptimalBruteForceGraphAssignmentSolver(GraphAssignmentSolver):
         )
 
         if not colorings:
-            return NO_SOLUTION
+            raise NoSolutionError(
+                cannot_link_graph=cannot_link_graph,
+                assignment_solver=self,
+                num_colors=len(score_matrix[0]),
+            )
 
         # This is the old loop-based implementation. I'd like to keep it here
         # in case the indexing-based variant becomes too memory demanding
@@ -224,7 +256,15 @@ class GreedyCOPGraphAssignmentSolver(GraphAssignmentSolver):
             coloring[i] = j
 
         if np.any(coloring == -1):
-            return NO_SOLUTION
+            raise NoSolutionError(
+                'No valid coloring could be found. This could be because '
+                'the graph is not colorable with the requested amount of '
+                'colors, or just bad luck because the Greedy COP algorithm '
+                'does not always find a solution.',
+                cannot_link_graph=cannot_link_graph,
+                assignment_solver=self,
+                num_colors=len(score_matrix[0]),
+            )
 
         return coloring
 
@@ -298,7 +338,12 @@ class DFSGraphAssignmentSolver(GraphAssignmentSolver):
                 depth = depth + 1
                 if depth == N:
                     return coloring
-        return NO_SOLUTION
+
+        raise NoSolutionError(
+            cannot_link_graph=cannot_link_graph,
+            assignment_solver=self,
+            num_colors=len(score_matrix[0]),
+        )
 
 
 class OptimalBranchAndBoundGraphAssignmentSolver(GraphAssignmentSolver):
@@ -332,7 +377,7 @@ class OptimalBranchAndBoundGraphAssignmentSolver(GraphAssignmentSolver):
             nonlocal best_cost
             current_vertex_costs = cost_matrix[0]
 
-            best_perm = NO_SOLUTION
+            best_perm = None
             for idx in np.argsort(current_vertex_costs):
                 current_cost = current_vertex_costs[idx] + cost
 
@@ -355,11 +400,18 @@ class OptimalBranchAndBoundGraphAssignmentSolver(GraphAssignmentSolver):
                     _cost_matrix, current_cost, depth + 1
                 )
 
-                if perm is not NO_SOLUTION:
+                if perm is not None:
                     best_perm = (idx,) + perm
             return best_perm
 
-        return find_best_permutation(score_matrix, 0, 0)
+        best_perm = find_best_permutation(score_matrix, 0, 0)
+        if best_perm is None:
+            raise NoSolutionError(
+                cannot_link_graph=cannot_link_graph,
+                assignment_solver=self,
+                num_colors=len(score_matrix[0]),
+            )
+        return best_perm
 
 
 @dataclass
@@ -375,6 +427,7 @@ class OptimalDynamicProgrammingAssignmentSolver(GraphAssignmentSolver):
         of its neighbors are colored and some are not). If this is violated, an
         assertion error is raised.
     """
+    optimize_connected_components: bool = False  # The DP algorithm does this implicitly
 
     def find_assignment(self, score_matrix, cannot_link_graph: Graph):
         # TODO: Check if adjacency list is valid (i.e., sorted)
@@ -390,7 +443,7 @@ class OptimalDynamicProgrammingAssignmentSolver(GraphAssignmentSolver):
         score_matrix -= np.min(score_matrix)
 
         candidates = {
-            (i,): (     # currently relevant nodes color sequence
+            (i,): (  # currently relevant nodes color sequence
                 (i,),  # coloring
                 score,  # score
             )
@@ -422,10 +475,14 @@ class OptimalDynamicProgrammingAssignmentSolver(GraphAssignmentSolver):
                     candidates[new_state] = (new_coloring, new_score)
         try:
             return min(candidates.items(), key=lambda x: x[1][1])[1][0]
-        except ValueError:
+        except ValueError as e:
             # ValueError: min() arg is an empty sequence
             # This means there is no solution
-            return NO_SOLUTION
+            raise NoSolutionError(
+                cannot_link_graph=cannot_link_graph,
+                assignment_solver=self,
+                num_colors=len(score_matrix[0]),
+            ) from e
 
 
 # Dispatchers for permutation solving using a cannot-link graph

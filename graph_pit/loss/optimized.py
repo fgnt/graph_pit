@@ -46,14 +46,6 @@ class OptimizedGraphPITLoss(GraphPITBase):
             to_numpy(similarity_matrix, detach=True), self.graph,
             minimize=False, algorithm=self.assignment_solver
         )
-        if x is graph_pit.assignment.NO_SOLUTION:
-            raise RuntimeError(
-                f'No solution found for graph {self.graph} with '
-                f'"{self.assignment_solver}" assignment solver and '
-                f'{similarity_matrix.shape[-1]} many colors". List of proper '
-                f'colorings: '
-                f'{list(self.graph.enumerate_graph_colorings(similarity_matrix.shape[-1]))}'
-            )
         return tuple(x)
 
     @cached_property

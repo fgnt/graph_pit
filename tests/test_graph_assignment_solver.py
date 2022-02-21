@@ -56,13 +56,15 @@ def test_assignment_solver_valid(
     for _ in range(trials):
         score_matrix = np.random.randn(num_targets, num_estimates)
         graph = _random_graph(num_targets, (num_estimates + 1) // 2)
-        best_coloring = assignment_fn(score_matrix, graph)
-        if assignment_solver == 'greedy_cop':
-            # This greedy variant does not always find a solution, so it should
-            # pass the test if the output is NO_SOLUTION
-            if best_coloring is gpa.NO_SOLUTION:
-                continue
-        _check_valid_solution(best_coloring, graph)
+        try:
+            best_coloring = assignment_fn(score_matrix, graph)
+        except gpa.NoSolutionError:
+            if assignment_solver != 'greedy_cop':
+                # This greedy variant does not always find a solution, so it should
+                # pass the test if it raises an exception
+                raise
+        else:
+            _check_valid_solution(best_coloring, graph)
 
 
 @pytest.mark.parametrize(
@@ -137,7 +139,11 @@ def _test_runtime(num_targets=15, num_estimates=3):
     # Greedy
     assignment_solver = gpa.GreedyCOPGraphAssignmentSolver()
     with timer['greedy']:
-        assignment_solver(score_matrix, graph)
+        try:
+            assignment_solver(score_matrix, graph)
+        except gpa.NoSolutionError:
+            # The Greedy COP algorithm does not always find a solution
+            pass
 
     # Branch and Bound
     assignment_solver = gpa.OptimalBranchAndBoundGraphAssignmentSolver()
@@ -159,19 +165,6 @@ def _test_runtime(num_targets=15, num_estimates=3):
     # completely broken.
     assert times['branch_and_bound'] < times['brute_force'] * 2
     assert times['dynamic_programming'] < times['branch_and_bound'] * 2
-
-
-def test_runtime(num_targets=15, num_estimates=3, retries=3):
-    """Test that the branch-and-bound, greedy and dfs are faster than
-    brute-force"""
-    for i in range(retries):
-        try:
-            _test_runtime(num_targets, num_estimates)
-        except AssertionError:
-            if i == retries - 1:
-                raise
-        else:
-            break
 
 
 def test_runtime(num_targets=15, num_estimates=3, retries=3):
