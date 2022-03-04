@@ -2,10 +2,10 @@ from dataclasses import dataclass
 from typing import List, Tuple, Callable
 import torch
 from cached_property import cached_property
+from torch.nn.functional import mse_loss
 
 from graph_pit.graph import Graph
 from graph_pit.loss.base import GraphPITBase, LossModule
-
 
 __all__ = [
     'GraphPITLoss',
@@ -54,22 +54,7 @@ class GraphPITLoss(GraphPITBase):
     because individual steps of the loss computation are factored out into
     different methods that can easily be overwritten.
     """
-    loss_fn: Callable
-
-    def __post_init__(self):
-        # Check inputs
-        num_estimates = self.estimate.shape[0]
-        num_targets = len(self.targets)
-        if num_estimates > 30:
-            raise ValueError(f'Are you sure? num_estimates={num_estimates}')
-
-        if num_targets != len(self.segment_boundaries):
-            raise ValueError(
-                f'The number of targets doesn\'t match the number of segment '
-                f'boundaries! '
-                f'num targets: {num_targets}, '
-                f'num segment_boundaries: {len(self.segment_boundaries)}'
-            )
+    loss_fn: Callable = mse_loss
 
     @property
     def loss(self) -> torch.Tensor:
@@ -95,7 +80,8 @@ def graph_pit_loss(
         estimate: torch.Tensor,
         targets: List[torch.Tensor],
         segment_boundaries: List[Tuple[int, int]],
-        loss_fn: Callable,
+        graph_segment_boundaries: List[Tuple[int, int]] = None,
+        loss_fn: Callable = mse_loss,
 ) -> torch.Tensor:
     """
     Graph-PIT loss function.
@@ -117,7 +103,10 @@ def graph_pit_loss(
     Returns:
         loss
     """
-    return GraphPITLoss(estimate, targets, segment_boundaries, loss_fn).loss
+    return GraphPITLoss(
+        estimate, targets, segment_boundaries, graph_segment_boundaries,
+        loss_fn
+    ).loss
 
 
 class GraphPITLossModule(LossModule):
@@ -127,6 +116,7 @@ class GraphPITLossModule(LossModule):
     representation of the module. Also, this is required for an object-oriented
     approach for the model, e.g., with `pt.Configurable`.
     """
+
     def __init__(self, loss_fn):
         super().__init__()
         self.loss_fn = loss_fn
@@ -136,10 +126,12 @@ class GraphPITLossModule(LossModule):
             estimate: torch.Tensor,
             targets: List[torch.Tensor],
             segment_boundaries: List[Tuple[int, int]],
-            **kwargs,   # unused here
+            graph_segment_boundaries: List[Tuple[int, int]] = None,
+            **kwargs,  # unused here
     ) -> GraphPITLoss:
         return GraphPITLoss(
             estimate, targets, segment_boundaries,
+            graph_segment_boundaries=graph_segment_boundaries,
             loss_fn=self.loss_fn,
         )
 

@@ -4,8 +4,8 @@ from typing import Union, Callable, List, Tuple
 import torch
 import numpy as np
 
+import graph_pit.assignment
 from graph_pit.loss.base import GraphPITBase, LossModule
-from graph_pit.assignment import graph_assignment_solvers
 
 __all__ = [
     'OptimizedGraphPITSourceAggregatedSDRLoss',
@@ -129,6 +129,7 @@ class OptimizedGraphPITSourceAggregatedSDRLoss(OptimizedGraphPITLoss):
 def optimized_graph_pit_source_aggregated_sdr_loss(
         estimate: torch.Tensor, targets: List[torch.Tensor],
         segment_boundaries: List[Tuple[int, int]],
+        graph_segment_boundaries: List[Tuple[int, int]] = None,
         assignment_solver: Union[Callable, str] =
         OptimizedGraphPITSourceAggregatedSDRLoss.assignment_solver
 ) -> torch.Tensor:
@@ -137,6 +138,7 @@ def optimized_graph_pit_source_aggregated_sdr_loss(
     """
     return OptimizedGraphPITSourceAggregatedSDRLoss(
         estimate, targets, segment_boundaries,
+        graph_segment_boundaries=graph_segment_boundaries,
         assignment_solver=assignment_solver
     ).loss
 
@@ -194,10 +196,12 @@ class OptimizedGraphPITSourceAggregatedSDRLossModule(
     def get_loss_object(
             self, estimate: torch.Tensor, targets: torch.Tensor,
             segment_boundaries: List[Tuple[int, int]],
+            graph_segment_boundaries: List[Tuple[int, int]] = None,
             **kwargs,
     ) -> loss_class:
         return self.loss_class(
             estimate, targets, segment_boundaries,
+            graph_segment_boundaries=graph_segment_boundaries,
             assignment_solver=self.assignment_solver,
             sdr_max=self.sdr_max,
         )
@@ -232,6 +236,7 @@ class OptimizedGraphPITMSELossModule(OptimizedGraphPITLoss):
 def optimized_graph_pit_mse_loss(
         estimate: torch.Tensor, targets: List[torch.Tensor],
         segment_boundaries: List[Tuple[int, int]],
+        graph_segment_boundaries: List[Tuple[int, int]] = None,
         assignment_solver: Union[Callable, str] =
         OptimizedGraphPITSourceAggregatedSDRLoss.assignment_solver
 ) -> torch.Tensor:
@@ -240,5 +245,6 @@ def optimized_graph_pit_mse_loss(
     """
     return OptimizedGraphPITMSELoss(
         estimate, targets, segment_boundaries,
+        graph_segment_boundaries=graph_segment_boundaries,
         assignment_solver=assignment_solver
     ).loss
