@@ -92,3 +92,12 @@ def test_optimized_graph_pit_exceptions(
         optimized_loss_class(torch.zeros(3, 100), torch.zeros(2, 100),
                        [(0, 50), (0, 100)]).loss
 
+    with pytest.raises(
+        ValueError,
+        match='Length mismatch between estimation and targets / segment_boundaries',
+    ):
+        optimized_loss_class(
+            torch.zeros(2, 100), torch.zeros(2, 100),
+            [(0, 100), (50, 150)],
+        )
+

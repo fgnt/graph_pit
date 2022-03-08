@@ -172,7 +172,8 @@ def validate_inputs(estimate, targets, segment_boundaries):
         if start < 0 or stop > estimate.shape[1]:
             raise ValueError(
                 f'Length mismatch between estimation and targets / '
-                f'segment_boundaries at {idx}: '
+                f'segment_boundaries at {idx}. At least one of the targets '
+                f'lies outside the boundaries of the estimated signal. '
                 f'estimation shape: {estimate.shape} '
                 f'segment_boundaries: {start, stop}'
             )
