@@ -13,6 +13,8 @@ __all__ = [
     'graph_pit_loss',
 ]
 
+from graph_pit.utils import validate_inputs
+
 
 def solve_graph_pit(
         estimate: torch.Tensor,
@@ -25,6 +27,8 @@ def solve_graph_pit(
         max_num_colors=estimate.shape[0]))
     if len(colorings) == 0:
         raise ValueError(f'No coloring found for graph! graph: {graph}')
+
+    validate_inputs(estimate, targets, segment_boundaries)
 
     best_loss = None
     best_coloring = None
@@ -155,30 +159,9 @@ def target_sum_from_target_list(
     Returns:
 
     """
-    if len(segment_boundaries) != len(targets):
-        raise ValueError(
-            f'Length of segment_boundaries does not match length of targets! '
-            f'num segment_boundaries: {len(segment_boundaries)} '
-            f'num targets: {len(targets)}'
-        )
-
     target_sum = torch.zeros_like(estimate)
     for idx, ((start, stop), (target_index, estimate_index)) in enumerate(zip(
             segment_boundaries, enumerate(permutation)
     )):
-        if targets[target_index].shape[0] != stop - start:
-            raise ValueError(
-                f'Length mismatch between target and segment_boundaries at '
-                f'target {idx}: '
-                f'target shape: {targets[target_index].shape} '
-                f'segment_boundaries: {start, stop}'
-            )
-        if start < 0 or stop > target_sum.shape[1]:
-            raise ValueError(
-                f'Length mismatch between estimation and targets / '
-                f'segment_boundaries at {idx}: '
-                f'estimation shape: {estimate.shape} '
-                f'segment_boundaries: {start, stop}'
-            )
         target_sum[estimate_index, start:stop] += targets[target_index]
     return target_sum

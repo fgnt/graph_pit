@@ -142,3 +142,37 @@ class Dispatcher(dict):
             return super().__getitem__(item)
         except KeyError as e:
             raise DispatchError(item, self.keys()) from None
+
+
+def validate_inputs(estimate, targets, segment_boundaries):
+    num_estimates = estimate.shape[0]
+    num_targets = len(targets)
+
+    if num_estimates > 30:
+        raise ValueError(f'Are you sure? num_estimates={num_estimates}')
+
+    if len(segment_boundaries) != num_targets:
+        raise ValueError(
+            f'The number of segment_boundaries does not match the number of '
+            f'targets! '
+            f'num segment_boundaries: {len(segment_boundaries)} '
+            f'num targets: {len(targets)}'
+        )
+
+    for idx, ((start, stop), target) in enumerate(zip(
+            segment_boundaries, targets
+    )):
+        if target.shape[0] != stop - start:
+            raise ValueError(
+                f'Length mismatch between target and segment_boundaries at '
+                f'target {idx}: '
+                f'target shape: {target.shape} '
+                f'segment_boundaries: {start, stop}'
+            )
+        if start < 0 or stop > estimate.shape[1]:
+            raise ValueError(
+                f'Length mismatch between estimation and targets / '
+                f'segment_boundaries at {idx}: '
+                f'estimation shape: {estimate.shape} '
+                f'segment_boundaries: {start, stop}'
+            )
