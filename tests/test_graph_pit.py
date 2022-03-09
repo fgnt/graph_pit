@@ -48,8 +48,8 @@ def test_graph_pit_exceptions():
 
     with pytest.raises(
             ValueError,
-            match='The number of targets doesn\'t match the number of '
-                  'segment boundaries!'
+            match='The number of segment_boundaries does not match the number '
+                  'of targets!'
     ):
         graph_pit_loss(torch.zeros(2, 100), torch.zeros(3, 100),
                        [(0, 100), (0, 100)], loss_fn=torch.nn.functional.mse_loss)
@@ -60,6 +60,15 @@ def test_graph_pit_exceptions():
     ):
         graph_pit_loss(torch.zeros(3, 100), torch.zeros(2, 100),
                        [(0, 50), (0, 100)], loss_fn=torch.nn.functional.mse_loss)
+
+    with pytest.raises(
+        ValueError,
+        match='Length mismatch between estimation and targets / segment_boundaries',
+    ):
+        graph_pit_loss(
+            torch.zeros(2, 100), torch.zeros(2, 100),
+            [(0, 100), (50, 150)],
+        )
 
 
 if __name__ == '__main__':

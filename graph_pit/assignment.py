@@ -36,8 +36,32 @@ class NoSolutionError(RuntimeError):
         self.num_colors = num_colors
 
     def __str__(self):
+        not_colorable_reason = ""
         if self.cannot_link_graph is not None and self.num_colors is not None:
             colorable = self.cannot_link_graph.has_coloring(self.num_colors)
+
+            if not colorable:
+                # Check if this is because the number of colors is too small.
+                # Check for cliques (complete sub-graphs) larger than
+                # self.num_colors
+                violated_vertices = set()
+                for i, neighbors in enumerate(
+                        self.cannot_link_graph.adjacency_list
+                ):
+                    neighbors = neighbors | {i}
+                    if len(neighbors) > self.num_colors:
+                        neighbors_ = set(neighbors)
+                        for n in neighbors:
+                            neighbors_.intersection_update(
+                                self.cannot_link_graph.adjacency_list[n] | {n}
+                            )
+                        if len(neighbors_) > self.num_colors:
+                            violated_vertices.update(neighbors_)
+                not_colorable_reason += (
+                    f"Found clique (simultaneously overlapping utterances) "
+                    f"larger than the requested number of colors. "
+                    f"Found problem at vertices / utterances: {violated_vertices}"
+                )
         else:
             colorable = "unknown"
         if self.cannot_link_graph:
@@ -59,6 +83,7 @@ class NoSolutionError(RuntimeError):
                 f'  Graph: {graph}\n'
                 f'  Number of colors: {num_colors}\n'
                 f'  Colorable: {colorable}'
+                + ('\n  ' + not_colorable_reason if not_colorable_reason else '')
         )
 
 

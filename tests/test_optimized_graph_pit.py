@@ -3,6 +3,7 @@ import functools
 from graph_pit.loss.optimized import OptimizedGraphPITSourceAggregatedSDRLoss, OptimizedGraphPITMSELoss
 from graph_pit.loss.regression import sdr_loss
 from graph_pit.loss.unoptimized import GraphPITLoss
+from graph_pit.assignment import NoSolutionError
 import torch
 import pytest
 import numpy as np
@@ -52,3 +53,51 @@ def test_optimized_graph_pit(
     np.testing.assert_equal(
         unoptimized_graph_pit.best_coloring, optimized_graph_pit.best_coloring
     )
+
+
+@pytest.mark.parametrize(
+    'optimized_loss_class',
+    [
+         OptimizedGraphPITSourceAggregatedSDRLoss,
+         OptimizedGraphPITMSELoss
+     ],
+)
+def test_optimized_graph_pit_exceptions(
+        optimized_loss_class
+):
+    torch.manual_seed(0)
+
+    with pytest.raises(
+            NoSolutionError, match='No valid coloring could be found.'
+    ):
+        optimized_loss_class(
+            estimate=torch.zeros(2, 100),
+            targets=torch.zeros(3, 100),
+            segment_boundaries=[(0, 100), (0, 100), (0, 100)]
+        ).loss
+
+    with pytest.raises(
+            ValueError,
+            match='The number of segment_boundaries does not match the number '
+                  'of targets!'
+    ):
+        optimized_loss_class(torch.zeros(2, 100), torch.zeros(3, 100),
+                       [(0, 100), (0, 100)]).loss
+
+    with pytest.raises(
+            ValueError,
+            match='Length mismatch between target and segment_boundaries at '
+                  'target'
+    ):
+        optimized_loss_class(torch.zeros(3, 100), torch.zeros(2, 100),
+                       [(0, 50), (0, 100)]).loss
+
+    with pytest.raises(
+        ValueError,
+        match='Length mismatch between estimation and targets / segment_boundaries',
+    ):
+        optimized_loss_class(
+            torch.zeros(2, 100), torch.zeros(2, 100),
+            [(0, 100), (50, 150)],
+        )
+

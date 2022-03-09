@@ -5,6 +5,7 @@ import torch
 from cached_property import cached_property
 
 from ..graph import Graph, get_overlap_graph
+from ..utils import validate_inputs
 
 
 @dataclass
@@ -16,21 +17,18 @@ class GraphPITBase:
 
     def __post_init__(self):
         # Check inputs
-        num_estimates = self.estimate.shape[0]
-        num_targets = len(self.targets)
-        if num_estimates > 30:
-            raise ValueError(f'Are you sure? num_estimates={num_estimates}')
-
-        if num_targets != len(self.segment_boundaries):
-            raise ValueError(
-                f'The number of targets doesn\'t match the number of segment '
-                f'boundaries! '
-                f'num targets: {num_targets}, '
-                f'num segment_boundaries: {len(self.segment_boundaries)}'
-            )
+        validate_inputs(self.estimate, self.targets, self.segment_boundaries)
 
         if self.graph_segment_boundaries is None:
             self.graph_segment_boundaries = self.segment_boundaries
+
+        if len(self.segment_boundaries) != len(self.graph_segment_boundaries):
+            raise ValueError(
+                f'The number of graph segment boundaries does not match the '
+                f'number of targets! '
+                f'num targets: {len(self.targets)} '
+                f'num graph_segment_boundaries: {len(self.graph_segment_boundaries)}'
+            )
 
     @cached_property
     def graph(self) -> Graph:
