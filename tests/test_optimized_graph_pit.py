@@ -1,13 +1,13 @@
 import functools
 
-from graph_pit.loss.optimized import OptimizedGraphPITSourceAggregatedSDRLoss, OptimizedGraphPITMSELoss
+from graph_pit.loss.optimized import OptimizedGraphPITSourceAggregatedSDRLoss, OptimizedGraphPITMSELoss, OptimizedGraphPITBCEWithLogitsLoss
 from graph_pit.loss.regression import sdr_loss
 from graph_pit.loss.unoptimized import GraphPITLoss
 from graph_pit.assignment import NoSolutionError
 import torch
 import pytest
 import numpy as np
-
+import torch.nn.functional
 
 @pytest.mark.parametrize(
     'seed,num_samples,num_estimates,segment_boundaries,algorithm,unoptimized_loss_fn,optimized_loss_class',
@@ -21,6 +21,7 @@ import numpy as np
      for unoptimized_loss_fn, optimized_loss_class in [
          (functools.partial(sdr_loss, aggregation='in_fraction', reduction='sum'), OptimizedGraphPITSourceAggregatedSDRLoss),
          (torch.nn.functional.mse_loss, OptimizedGraphPITMSELoss),
+         (functools.partial(torch.nn.functional.binary_cross_entropy_with_logits, reduction='sum',), OptimizedGraphPITBCEWithLogitsLoss),
      ]],
 )
 def test_optimized_graph_pit(
@@ -59,7 +60,8 @@ def test_optimized_graph_pit(
     'optimized_loss_class',
     [
          OptimizedGraphPITSourceAggregatedSDRLoss,
-         OptimizedGraphPITMSELoss
+         OptimizedGraphPITMSELoss,
+        OptimizedGraphPITBCEWithLogitsLoss,
      ],
 )
 def test_optimized_graph_pit_exceptions(
@@ -100,4 +102,3 @@ def test_optimized_graph_pit_exceptions(
             torch.zeros(2, 100), torch.zeros(2, 100),
             [(0, 100), (50, 150)],
         )
-
