@@ -20,8 +20,8 @@ import torch.nn.functional
      ] for algorithm in ['optimal_brute_force', 'optimal_branch_and_bound']
      for unoptimized_loss_fn, optimized_loss_class in [
          (functools.partial(sdr_loss, aggregation='in_fraction', reduction='sum'), OptimizedGraphPITSourceAggregatedSDRLoss),
-         (torch.nn.functional.mse_loss, OptimizedGraphPITMSELoss),
-         (functools.partial(torch.nn.functional.binary_cross_entropy_with_logits, reduction='sum',), OptimizedGraphPITBCEWithLogitsLoss),
+        (torch.nn.functional.mse_loss, OptimizedGraphPITMSELoss),
+         (functools.partial(torch.nn.functional.binary_cross_entropy_with_logits, ), OptimizedGraphPITBCEWithLogitsLoss),
      ]],
 )
 def test_optimized_graph_pit(
