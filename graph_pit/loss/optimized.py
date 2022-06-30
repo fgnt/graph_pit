@@ -51,7 +51,7 @@ class OptimizedGraphPITLoss(GraphPITBase):
 
     def __post_init__(self):
         super().__post_init__()
-        assert self.reduction in ('sum', 'mean')
+        assert self.reduction in ('sum', 'mean'), self.reduction
 
     @cached_property
     def similarity_matrix(self) -> torch.Tensor:
@@ -111,7 +111,7 @@ class OptimizedGraphPITSourceAggregatedSDRLoss(OptimizedGraphPITLoss):
     def __post_init__(self):
         super().__post_init__()
         assert self.reduction == 'sum', (
-            'Only sum reduction makes sense for SA-SDR'
+            f'Only sum reduction makes sense for SA-SDR, not {self.reduction}'
         )
 
     @cached_property
