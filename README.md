@@ -164,3 +164,8 @@ If you use this code, please cite the papers:
   doi={}
 }
 ```
+
+- [3] The binary cross entropy loss: "Utterance-by-utterance overlap-aware neural diarization with Graph-PIT"
+```bibtex
+TOOD: Add bibtex entry when paper is published
+```
