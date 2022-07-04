@@ -17,6 +17,24 @@ from graph_pit.utils import to_numpy
 import graph_pit
 
 
+def compute_mse_similarity_matrix(estimate, targets, segment_boundaries):
+    """
+    # TODO: can this be optimized?
+
+    This computes the matrix-matrix product but ignores anything that lies
+    outside the segment boundaries (and is by definition 0).
+    """
+    v = []
+    for target, (start, stop) in zip(targets, segment_boundaries):
+        v.append(torch.sum(
+            estimate[:, start:stop, ...] * target[None, :, ...],
+            dim=tuple(range(1, len(estimate.shape)))
+        ))
+    similarity_matrix = torch.stack(v)
+    assert len(similarity_matrix.shape) == 2, similarity_matrix.shape
+    return similarity_matrix
+
+
 @dataclass
 class OptimizedGraphPITLoss(GraphPITBase):
     """
@@ -29,6 +47,11 @@ class OptimizedGraphPITLoss(GraphPITBase):
         [1] Speeding up Permutation Invariant Training
     """
     assignment_solver: Union[Callable, str] = 'optimal_dynamic_programming'
+    reduction: str = 'sum'
+
+    def __post_init__(self):
+        super().__post_init__()
+        assert self.reduction in ('sum', 'mean'), self.reduction
 
     @cached_property
     def similarity_matrix(self) -> torch.Tensor:
@@ -58,7 +81,10 @@ class OptimizedGraphPITLoss(GraphPITBase):
 
     @cached_property
     def loss(self) -> torch.Tensor:
-        return self.compute_f(self.max_similarity)
+        loss = self.compute_f(self.max_similarity)
+        if self.reduction == 'mean':
+            loss = loss / np.prod(self.estimate.shape)
+        return loss
 
 
 @dataclass
@@ -82,6 +108,12 @@ class OptimizedGraphPITSourceAggregatedSDRLoss(OptimizedGraphPITLoss):
     """
     sdr_max: float = None
 
+    def __post_init__(self):
+        super().__post_init__()
+        assert self.reduction == 'sum', (
+            f'Only sum reduction makes sense for SA-SDR, not {self.reduction}'
+        )
+
     @cached_property
     def _threshold(self):
         if self.sdr_max is None:
@@ -91,26 +123,12 @@ class OptimizedGraphPITSourceAggregatedSDRLoss(OptimizedGraphPITLoss):
     @cached_property
     def similarity_matrix(self) -> torch.Tensor:
         """
-        # TODO: can this be optimized?
-
-        This computes the matrix-matrix product but ignores anything that lies
-        outside the segment boundaries (and is by definition 0).
-
-        TODO: Could a sparse tensor be faster?
-
         Returns:
             Shape: (num_targets, num_estimates)
         """
-        v = []
-        for idx, (target, (start, stop)) in enumerate(zip(
-                self.targets, self.segment_boundaries
-        )):
-            v.append(torch.sum(
-                self.estimate[..., start:stop] * target[..., None, :],
-                dim=-1
-            ))
-        similarity_matrix = torch.stack(v)
-        return similarity_matrix
+        return compute_mse_similarity_matrix(
+            self.estimate, self.targets, self.segment_boundaries
+        )
 
     def compute_f(self, x) -> torch.Tensor:
         # Compute target and estimate energies
@@ -153,7 +171,8 @@ class OptimizedGraphPITLossModule(LossModule):
     def __init__(
             self,
             assignment_solver: Union[Callable, str] =
-            OptimizedGraphPITSourceAggregatedSDRLoss.assignment_solver
+            OptimizedGraphPITSourceAggregatedSDRLoss.assignment_solver,
+            reduction: str = 'sum',
     ):
         """
         The sa-SDR Graph-PIT loss as a `Torch.nn.Module`. Can be used in a
@@ -161,6 +180,7 @@ class OptimizedGraphPITLossModule(LossModule):
         """
         super().__init__()
         self.assignment_solver = assignment_solver
+        self.reduction = reduction
 
     def get_loss_object(
             self, estimate: torch.Tensor, targets: torch.Tensor,
@@ -169,7 +189,8 @@ class OptimizedGraphPITLossModule(LossModule):
     ) -> loss_class:
         return self.loss_class(
             estimate, targets, segment_boundaries,
-            assignment_solver=self.assignment_solver
+            assignment_solver=self.assignment_solver,
+            reduction=self.reduction
         )
 
     def extra_repr(self) -> str:
@@ -188,9 +209,9 @@ class OptimizedGraphPITSourceAggregatedSDRLossModule(
     def __init__(
             self,
             assignment_solver: Union[Callable, str] = OptimizedGraphPITSourceAggregatedSDRLoss.assignment_solver,
-            sdr_max: float = None
+            sdr_max: float = None,
     ):
-        super().__init__(assignment_solver)
+        super().__init__(assignment_solver, reduction='sum')
         self.sdr_max = sdr_max
 
     def get_loss_object(
@@ -207,30 +228,33 @@ class OptimizedGraphPITSourceAggregatedSDRLossModule(
         )
 
 
+@dataclass
 class OptimizedGraphPITMSELoss(OptimizedGraphPITLoss):
+    reduction: str = 'mean'
+
     @cached_property
     def similarity_matrix(self):
-        v = []
-        for idx, (target, (start, stop)) in enumerate(zip(
-                self.targets, self.segment_boundaries
-        )):
-            v.append(torch.sum(
-                self.estimate[:, start:stop, ...] * target[None, ...],
-                dim=tuple(range(1, len(self.estimate.shape)))
-            ))
-        similarity_matrix = torch.stack(v)
-        return similarity_matrix
+        return compute_mse_similarity_matrix(
+            self.estimate, self.targets, self.segment_boundaries
+        )
 
     def compute_f(self, x):
         target_energy = torch.sum(
             torch.stack([torch.sum(t ** 2) for t in self.targets])
         )
         estimate_energy = torch.sum(self.estimate ** 2)
-        return (target_energy + estimate_energy - 2 * x) / np.prod(self.estimate.shape)
+        return target_energy + estimate_energy - 2 * x
 
 
-class OptimizedGraphPITMSELossModule(OptimizedGraphPITLoss):
+class OptimizedGraphPITMSELossModule(OptimizedGraphPITLossModule):
     loss_class = OptimizedGraphPITMSELoss
+
+    def __init__(
+            self,
+            assignment_solver: Union[Callable, str] = OptimizedGraphPITMSELoss.assignment_solver,
+            reduction: str = 'mean'
+    ):
+        super().__init__(assignment_solver, reduction)
 
 
 def optimized_graph_pit_mse_loss(
@@ -238,12 +262,63 @@ def optimized_graph_pit_mse_loss(
         segment_boundaries: List[Tuple[int, int]],
         graph_segment_boundaries: List[Tuple[int, int]] = None,
         assignment_solver: Union[Callable, str] =
-        OptimizedGraphPITSourceAggregatedSDRLoss.assignment_solver
+        OptimizedGraphPITSourceAggregatedSDRLoss.assignment_solver,
 ) -> torch.Tensor:
     """
     Function form of the sa-SDR Graph-PIT loss.
     """
     return OptimizedGraphPITMSELoss(
+        estimate, targets, segment_boundaries,
+        graph_segment_boundaries=graph_segment_boundaries,
+        assignment_solver=assignment_solver
+    ).loss
+
+
+@dataclass
+class OptimizedGraphPITBCEWithLogitsLoss(OptimizedGraphPITLoss):
+    """
+    Computes the binary cross entropy with logits as
+    `torch.nn.functional.binary_cross_entropy_with_logits`
+    """
+    reduction: str = 'mean'
+
+    @cached_property
+    def similarity_matrix(self) -> torch.Tensor:
+        return compute_mse_similarity_matrix(
+            self.estimate, self.targets, self.segment_boundaries
+        )
+
+    def compute_f(self, x) -> torch.Tensor:
+        """
+        Computes the loss value from the similarity score `x` using
+        the log-sum-exp trick for numerical stabilization.
+        """
+        m = torch.clamp_min(-self.estimate, 0)
+        return -x + torch.sum(
+            m + + self.estimate +
+            torch.log(torch.exp(-m) + torch.exp(-m - self.estimate))
+        )
+
+
+class OptimizedGraphPITBCEWithLogits(OptimizedGraphPITLossModule):
+    loss_class = OptimizedGraphPITBCEWithLogitsLoss
+
+    def __init__(
+            self,
+            assignment_solver: Union[Callable, str] = OptimizedGraphPITBCEWithLogitsLoss.assignment_solver,
+            reduction: str = 'mean'
+    ):
+        super().__init__(assignment_solver, reduction)
+
+
+def optimized_graph_pit_bce_with_logits_loss(
+        estimate: torch.Tensor, targets: List[torch.Tensor],
+        segment_boundaries: List[Tuple[int, int]],
+        graph_segment_boundaries: List[Tuple[int, int]] = None,
+        assignment_solver: Union[Callable, str] =
+        OptimizedGraphPITBCEWithLogitsLoss.assignment_solver
+):
+    return OptimizedGraphPITBCEWithLogitsLoss(
         estimate, targets, segment_boundaries,
         graph_segment_boundaries=graph_segment_boundaries,
         assignment_solver=assignment_solver
