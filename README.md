@@ -165,7 +165,14 @@ If you use this code, please cite the papers:
 }
 ```
 
-- [3] The binary cross entropy loss: "Utterance-by-utterance overlap-aware neural diarization with Graph-PIT"
+- [3] The binary cross entropy loss: "Utterance-by-utterance overlap-aware neural diarization with Graph-PIT": https://www.isca-speech.org/archive/interspeech_2022/kinoshita22_interspeech.html
 ```bibtex
-TOOD: Add bibtex entry when paper is published
+@inproceedings{kinoshita22_interspeech,
+  author={Keisuke Kinoshita and Thilo von Neumann and Marc Delcroix and Christoph Boeddeker and Reinhold Haeb-Umbach},
+  title={{Utterance-by-utterance overlap-aware neural diarization with Graph-PIT}},
+  year=2022,
+  booktitle={Proc. Interspeech 2022},
+  pages={1486--1490},
+  doi={10.21437/Interspeech.2022-11408}
+}
 ```
